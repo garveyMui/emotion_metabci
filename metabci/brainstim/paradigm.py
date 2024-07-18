@@ -1203,6 +1203,235 @@ class MI(VisualStim):
             opacities=[1],
             contrs=[-1],
         )
+#standard emotion
+class emotion(VisualStim):
+    """
+    Create emotion stimuli.
+
+    The subclass MI inherits from the parent class VisualStim, and duplicate properties are no longer listed.
+
+    author: Wei Zhao
+
+    Created on: 2022-06-30
+
+    update log:
+        2022-08-10 by Wei Zhao
+
+        2023-12-09 by Simiao Li <lsm_sim@tju.edu.cn> Add code annotation
+
+    Parameters
+    ----------
+        win:
+            The window object.
+        colorspace: str
+            The color space, default to rgb.
+        allowGUI: bool
+            Defaults to True, which allows frame-by-frame drawing and key-exit.
+
+    Attributes
+    ----------
+        tex_left: str
+            Obtain the image path for left hand stimulation.
+        tex_right: str
+            Obtain the image path for right hand stimulation.
+        left_pos: list, shape(x, y)
+            The position of left hand stimulation. Only exists in config_color().
+        right_pos: list, shape(x, y)
+            The position of right hand stimulation. Only exists in config_color().
+        tex_left: str
+            Obtain the image path for left hand stimulation. Only exists in config_color().
+        refresh_rate: int
+            The refresh rate of the screen. Only exists in config_color().
+        text_stimulus: object
+            Stimulus text, display "start" on the screen. Only exists in config_color().
+        image_left_stimuli: object
+            Left hand stimulation image, with colors indicating or starting to imagine.
+            Only exists in config_color().
+        image_right_stimuli: object
+            Stimulate the image with the right hand, with colors indicating or starting to imagine.
+            Only exists in config_color().
+        normal_left_stimuli: object
+            Left hand stimulation image, default color. Only exists in config_color().
+        normal_right_stimuli: object
+            Right hand stimulation image, default color. Only exists in config_color().
+        response_left_stimuli: object
+            Left hand stimulation image, color for online feedback. Only exists in config_color().
+        response_right_stimuli: object
+            Right hand stimulation image, color for online feedback. Only exists in config_color().
+
+    Tip
+    ----
+    .. code-block:: python
+        :caption: An example of creating MI stimuli.
+
+        from psychopy import monitors
+        import numpy as np
+        from brainstim.framework import Experiment
+        from brainstim.paradigm import MI,paradigm
+
+        win = ex.get_window()
+
+        # press q to exit paradigm interface
+        fps = 120                                                   # Screen refresh rate
+        text_pos = (0.0, 0.0)                                       # Prompt text position
+        left_pos = [[-480, 0.0]]                                    # Left hand position
+        right_pos = [[480, 0.0]]                                    # Right hand position
+        tex_color = 2*np.array([179, 45, 0])/255-1                  # Prompt text color
+        normal_color = [[-0.8,-0.8,-0.8]]                           # Default color
+        image_color = [[1,1,1]]
+        symbol_height = 100
+        n_Elements = 1                                              # One on each hand
+        stim_length = 288                                           # Length
+        stim_width = 288                                            # Width
+        basic_MI = MI(win=win)
+        basic_MI.config_color(refresh_rate=fps, text_pos=text_pos, left_pos=left_pos, right_pos=right_pos, .
+            tex_color=tex_color, normal_color=normal_color, image_color=image_color, symbol_height=symbol_height,
+            n_Elements=n_Elements, stim_length=stim_length, stim_width=stim_width)
+        basic_MI.config_response()
+        bg_color = np.array([-1, -1, -1])                           # Background color
+        display_time = 1
+        index_time = 1
+        rest_time = 1
+        image_time = 4
+        response_time = 2
+        port_addr = None
+        nrep = 10
+        lsl_source_id =  None
+        online = False
+        ex.register_paradigm('basic MI', paradigm, VSObject=basic_MI, bg_color=bg_color, display_time=display_time,
+            index_time=index_time, rest_time=rest_time, response_time=response_time, port_addr=port_addr,
+            nrep=nrep, image_time=image_time, pdim='mi',lsl_source_id=lsl_source_id, online=online)
+
+    """
+
+    def __init__(self, win, colorSpace="rgb", allowGUI=True):
+        super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
+
+        self.tex_pos =[]
+        self.tex_pos.append(os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "textures" + os.sep + "1-1.mkv",
+        ))
+        self.tex_pos.append(os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "textures" + os.sep + "1-4.mkv",
+        ))
+        self.tex_pos.append(os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "textures" + os.sep + "1-6.mkv",
+        ))
+        self.tex_neg =[]
+        self.tex_neg.append(os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "textures" + os.sep + "1-3.mkv",
+        ))
+        self.tex_neg.append(os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "textures" + os.sep + "1-5.mkv",
+        ))
+        self.tex_neg.append(os.path.join(
+            os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
+            "textures" + os.sep + "1-8.mkv",
+        ))
+
+    def config_movie(
+        self,
+        refresh_rate=60,
+        text_pos=(0.0, 0.0),
+        pos_loc=[[0.0, 50.0]],
+        neg_loc=[[0.0, 50.0]],
+        tex_color=(1, -1, -1),
+        symbol_height=100,
+        n_Elements=1,
+        stim_length=1080,
+        stim_width=768,
+    ):
+        """Config color of stimuli.
+
+        Parameters
+        ----------
+            refresh_rate: int
+                Refresh rate of screen.
+            text_pos: ndarray, shape(x, y)
+                The position of the prompt text ("start").
+            left_pos: ndarray, shape(x, y)
+                The position of left hand stimulation.
+            right _pos: ndarray, shape(x, y)
+                The position of right hand stimulation.
+            tex_color: ndarray, shape(red, green, blue)
+               The color of the stimulating text, ranging from -1.0 to 1.0.
+            normal_color: ndarray, shape(red, green, blue)
+                The stimulating color during rest.
+            image_color: ndarray, shape(red, green, blue)
+                The stimulating color during imaging.
+            symbol_height: float
+                The height of the prompt text.
+            n_Elements: int
+                The number of left and right hand stimuli.
+            stim_length: float
+                The length of left and right hand stimulation
+            stim_width=162: float
+                The width of left and right hand stimulation.
+
+        """
+
+        self.n_Elements = n_Elements
+        self.stim_length = stim_length
+        self.stim_width = stim_width
+        self.pos_loc = pos_loc
+        self.neg_loc = neg_loc
+        self.refresh_rate = refresh_rate
+        if refresh_rate == 0:
+            refresh_rate = np.floor(
+                self.win.getActualFrameRate(nIdentical=20, nWarmUpFrames=20)
+            )
+
+        if symbol_height == 0:
+            symbol_height = int(self.win_size[1] / 6)
+        self.start_stimulus = visual.TextStim(
+            self.win,
+            text="start",
+            font="Times New Roman",
+            pos=text_pos,
+            color=tex_color,
+            units="pix",
+            height=symbol_height,
+            bold=True,
+        )
+        self.rest_stimulus = visual.TextStim(
+            self.win,
+            text="rest",
+            font="Times New Roman",
+            pos=text_pos,
+            color=tex_color,
+            units="pix",
+            height=symbol_height,
+            bold=True,
+        )
+        self.image_pos_stimuli=[]
+        for i in self.tex_pos:
+            self.image_pos_stimuli.append(visual.MovieStim3(
+                self.win,
+                units="pix",
+                filename=i,
+                size=[stim_length, stim_width],
+                pos=np.array(pos_loc),
+                ori=0.0,
+                opacity=1.0,
+            ))
+        self.image_neg_stimuli = []
+        for i in self.tex_neg:
+            self.image_neg_stimuli.append(visual.MovieStim3(
+                self.win,
+                units="pix",
+                filename=i,
+                size=[stim_length, stim_width],
+                pos=np.array(neg_loc),
+                ori=0.0,
+                opacity=1.0,
+            ))
+
+
 
 
 # standard AVEP paradigm
@@ -3116,3 +3345,80 @@ def paradigm(
                     VSObject.text_response.draw()
                     iframe += 1
                     win.flip()
+
+    elif pdim == "emotion":
+        # config experiment settings
+        conditions = [
+            {"id": 0, "name": "pos"},
+            {"id": 1, "name": "neg"},
+            {"id": 2, "name": "pos"},
+            {"id": 3, "name": "neg"},
+            {"id": 4, "name": "pos"},
+            {"id": 5, "name": "neg"},
+            # {"id": 2, "name": "both_hands"},
+        ]
+        trials = data.TrialHandler(conditions, nrep, name="experiment", method="random")
+
+        # start routine
+        # episode 1: display speller interface
+        iframe = 0
+        while iframe < int(fps * display_time):
+            #VSObject.normal_left_stimuli.draw()
+            #VSObject.normal_right_stimuli.draw()
+            iframe += 1
+            win.flip()
+
+        # episode 2: begin to flash
+        if port:
+            port.setData(0)
+        for trial in trials:
+            # quit demo
+            keys = event.getKeys(["q"])
+            if "q" in keys:
+                break
+
+            # initialise index position
+            id = int(trial["id"])
+            if id % 2 == 0:
+                image_stimuli = VSObject.image_pos_stimuli[int(id/2)]
+            else:
+                image_stimuli = VSObject.image_neg_stimuli[int(id/2)]
+            # phase I: prepare
+            if index_time != 0:
+                iframe = 0
+                while iframe < int(fps * index_time):
+                    VSObject.start_stimulus.setText("start in %d" % (index_time-iframe//fps))
+                    VSObject.start_stimulus.draw()
+                    #VSObject.normal_left_stimuli.draw()
+                    #VSObject.normal_right_stimuli.draw()
+                    iframe += 1
+                    win.flip()
+
+
+            # phase I: target stimulating
+            iframe = 0
+            image_stimuli.play()
+            while iframe < int(fps * image_time):
+                image_stimuli.draw()
+                if iframe == 0 and port and online:
+                    VSObject.win.callOnFlip(port.setData, id + 1)
+                elif iframe == 0 and port:
+                    VSObject.win.callOnFlip(port.setData, id + 1)
+                if iframe == port_frame and port:
+                    port.setData(0)
+
+
+                iframe += 1
+                win.flip()
+            image_stimuli.pause()
+            image_stimuli.seek(0.0)
+            # phase II: rest state
+            if rest_time != 0:
+                iframe = 0
+                while iframe < int(fps * rest_time):
+                    VSObject.rest_stimulus.draw()
+                    #VSObject.normal_left_stimuli.draw()
+                    #VSObject.normal_right_stimuli.draw()
+                    iframe += 1
+                    win.flip()
+
