@@ -11,7 +11,7 @@ import numpy as np
 import mne
 from mne.filter import resample
 from pylsl import StreamInfo, StreamOutlet
-from metabci.brainflow.amplifiers import NeuroScan, Marker
+from metabci.brainflow.amplifiers import NeuroScan, Marker, Neuracle
 from metabci.brainflow.workers import ProcessWorker
 from metabci.brainda.algorithms.decomposition.base import generate_filterbank
 from metabci.brainda.algorithms.utils.model_selection \
@@ -267,10 +267,10 @@ if __name__ == '__main__':
                     events=stim_labels)        # 打标签全为1
     # worker.pre()
 
-    ns = NeuroScan(
-        device_address=('192.168.56.5', 4000),
+    ns = Neuracle(
+        device_address=('192.168.56.5', 8712),
         srate=srate,
-        num_chans=68)  # NeuroScan parameter
+        num_chans=32)  # Neuracle parameter
 
     # 与ns建立tcp连接
     ns.connect_tcp()
