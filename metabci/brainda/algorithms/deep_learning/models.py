@@ -51,7 +51,7 @@ class EEG_model():
         encoding = config['encoding']
 
         if encoding == 'Morgan' or encoding == 'ErG' or encoding == 'Pubchem' or encoding == 'Daylight' or encoding == 'rdkit_2d_normalized' or encoding == 'ESPF':
-            # Future TODO: support multiple encoding scheme for static input
+            # Future : support multiple encoding scheme for static input
             self.encoding = MLP(config['input_dim_drug'], config['hidden_dim_drug'], config['mlp_hidden_dims_drug'])
         elif encoding == 'CNN':
             self.encoding = CNN('drug', **config)
