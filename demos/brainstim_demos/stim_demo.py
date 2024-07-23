@@ -3,6 +3,10 @@ import math
 from psychopy import monitors
 import numpy as np
 from metabci.brainstim.paradigm import (
+    VisualStim,
+    Text,
+    trial,
+    Movie,
     SSVEP,
     P300,
     MI,
@@ -40,7 +44,6 @@ if __name__ == "__main__":
         use_fbo=False,
     )
     win = ex.get_window()
-
     # q退出范式界面
     """
     SSVEP
@@ -305,6 +308,7 @@ if __name__ == "__main__":
         lsl_source_id=lsl_source_id,
         online=online,
     )
+
     """
     连续反馈，不设定反馈显示时长，线程获取预测标签 con-SSVEP
     """

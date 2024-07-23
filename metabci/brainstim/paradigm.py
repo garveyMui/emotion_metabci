@@ -8,17 +8,163 @@ import string
 import numpy as np
 from math import pi
 from psychopy import data, visual, event
+from psychopy.visual.movie3 import MovieStim3
 from psychopy.visual.circle import Circle
 from pylsl.pylsl import StreamInlet, resolve_byprop
-from .utils import NeuroScanPort, NeuraclePort, _check_array_like
+from .utils import NeuroScanPort, NeuraclePort, TxtPort, _check_array_like
 import threading
 from copy import copy
 import random
 from scipy import signal
 from PIL import Image
+import datetime
+import time
 
 
 # prefunctions
+class item:
+    def __init__(self):
+        self.st=-1
+        self.en=-1
+        self.label = 0
+        self.time=0
+
+
+    def start(self):
+        return
+
+    def end(self):
+        return
+
+
+class scene:
+    def __init__(self):
+        self.time = 0
+        self.modules = []
+
+    def add_module(self, mod):
+        if mod.st < 0:
+            if(not self.modules):
+                mod.st=0
+            else:
+                mod.st=self.modules[-1].en
+        if mod.en < 0:
+            mod.en=mod.st + mod.time
+        if mod.en > self.time:
+            self.time = mod.en
+        self.modules.append(mod)
+
+    def run(self, win=None,
+            bg_color=np.array([-1, -1, -1]),
+            port_addr=9045,
+            device_type="Txt", ):
+        if not _check_array_like(bg_color, 3):
+            raise ValueError("bg_color should be 3 elements array-like object.")
+
+        win.color = bg_color
+
+        if device_type == "NeuroScan":
+            port = NeuroScanPort(port_addr, use_serial=True) if port_addr else None
+        elif device_type == "Neuracle":
+            port = NeuraclePort(port_addr) if port_addr else None
+        elif device_type == "Txt":
+            port = TxtPort(port_addr) if port_addr else None
+        else:
+            raise KeyError(
+                "Unknown device type: {}, please check your input".format(device_type)
+            )
+
+        # start routine
+        # episode 1: display speller interface
+        start = datetime.datetime.now()
+        while (datetime.datetime.now() - start).total_seconds() < self.time:
+            now=(datetime.datetime.now() - start).total_seconds()
+            win.flip()
+            for item in self.modules:
+                if now > item.st and now < item.en:
+                    if item.st!=-1:
+                        item.st=-1
+                        item.start()
+                        if port and item.label != -1:
+                            port.setData(item.label)
+                    item.draw()
+                if item.en!=-1 and now > item.en:
+                    item.en=-1
+                    item.end()
+
+
+
+
+class Text(visual.TextStim, item):
+    def __init__(self, win, text="Text", font="Times New Roman", pos=(0.0, 0.0), color=(1, -1, -1), size=100, time=5,
+                 label=0,start=-1,end=-1):
+        super().__init__(win=win,
+                         text=text,
+                         font=font,
+                         pos=pos,
+                         color=color,
+                         units="pix",
+                         height=size,
+                         bold=True )
+        self.st = start
+        self.en = end
+        self.label = label
+        self.time = time
+
+    def start(self):
+        return
+
+    def end(self):
+        return
+
+class CountDown(visual.TextStim, item):
+    def __init__(self, win, font="Times New Roman", pos=(0.0, 0.0), color=(1, -1, -1), size=100, time=5,
+                 label=0,start=-1,end=-1):
+        super().__init__(text=str(time),
+                         win=win,
+                         font=font,
+                         pos=pos,
+                         color=color,
+                         units="pix",
+                         height=size,
+                         bold=True, )
+        self.st = start
+        self.en = end
+        self.label = label
+        self.time = time
+        self.timestamp=0
+
+    def start(self):
+        self.timestamp=datetime.datetime.now()
+        return
+    def draw(self,win=None):
+        self.text=str(int(self.time-(datetime.datetime.now()-self.timestamp).total_seconds()))
+        super().draw(win)
+    def end(self):
+        return
+
+class Movie(MovieStim3, item):
+    def __init__(self, win, file, pos=[0.0, 0.0], size=[1024, 768],start=-1,end=-1, time=5, label=0):
+        super().__init__(
+            win=win,
+            units="pix",
+            filename=file,
+            size=size,
+            pos=np.array(pos),
+            ori=0.0,
+            opacity=1.0,
+        )
+        self.st = start
+        self.en = end
+        self.label = label
+        self.time = time
+
+    def start(self):
+        self.play()
+
+    def end(self):
+        self.pause()
+        self.seek(0.0)
 
 
 def sinusoidal_sample(freqs, phases, srate, frames, stim_color):
@@ -221,13 +367,13 @@ class KeyboardInterface(object):
         self.win_size = np.array(win_size)  # e.g. [1920,1080]
 
     def config_pos(
-        self,
-        n_elements=40,
-        rows=5,
-        columns=8,
-        stim_pos=None,
-        stim_length=150,
-        stim_width=150,
+            self,
+            n_elements=40,
+            rows=5,
+            columns=8,
+            stim_pos=None,
+            stim_length=150,
+            stim_width=150,
     ):
         """Set the number, position, and size parameters of the stimulus block.
 
@@ -272,7 +418,7 @@ class KeyboardInterface(object):
             stim_pos = np.zeros((self.n_elements, 2))
             # divide the whole screen into rows*columns' blocks, and pick the center of each block
             first_pos = (
-                np.array([self.win_size[0] / columns, self.win_size[1] / rows]) / 2
+                    np.array([self.win_size[0] / columns, self.win_size[1] / rows]) / 2
             )
             if (first_pos[0] < stim_length / 2) or (first_pos[1] < stim_width / 2):
                 raise Exception("Too much blocks or too big the stimulus region!")
@@ -296,7 +442,7 @@ class KeyboardInterface(object):
         self.rows = rows
 
     def config_text(
-        self, unit="pix", symbols=None, symbol_height=0, tex_color=[1, 1, 1]
+            self, unit="pix", symbols=None, symbol_height=0, tex_color=[1, 1, 1]
     ):
         """Sets the characters within the stimulus block.
 
@@ -348,11 +494,11 @@ class KeyboardInterface(object):
             )
 
     def config_response(
-        self,
-        symbol_text="Speller:  ",
-        symbol_height=0,
-        symbol_color=(1, 1, 1),
-        bg_color=[-1, -1, -1],
+            self,
+            symbol_text="Speller:  ",
+            symbol_height=0,
+            symbol_color=(1, 1, 1),
+            bg_color=[-1, -1, -1],
     ):
         """Sets the character of the online response.
 
@@ -447,7 +593,7 @@ class VisualStim(KeyboardInterface):
 
     """
 
-    def __init__(self, win, colorSpace="rgb", allowGUI=True):
+    def __init__(self, win=None, colorSpace="rgb", allowGUI=True):
         super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
         self._exit = threading.Event()
 
@@ -604,13 +750,13 @@ class SSVEP(VisualStim):
         super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
 
     def config_color(
-        self,
-        refresh_rate,
-        stim_time,
-        stim_color,
-        stimtype="sinusoid",
-        stim_opacities=1,
-        **kwargs
+            self,
+            refresh_rate,
+            stim_time,
+            stim_color,
+            stimtype="sinusoid",
+            stim_opacities=1,
+            **kwargs
     ):
         """Config color of stimuli.
 
@@ -668,14 +814,14 @@ class SSVEP(VisualStim):
         # check consistency
         if stimtype == "sinusoid":
             self.stim_colors = (
-                sinusoidal_sample(
-                    freqs=self.freqs,
-                    phases=self.phases,
-                    srate=self.refresh_rate,
-                    frames=self.stim_frames,
-                    stim_color=stim_color,
-                )
-                - 1
+                    sinusoidal_sample(
+                        freqs=self.freqs,
+                        phases=self.phases,
+                        srate=self.refresh_rate,
+                        frames=self.stim_frames,
+                        stim_color=stim_color,
+                    )
+                    - 1
             )
             if self.stim_colors[0].shape[0] != self.n_elements:
                 raise Exception("Please input correct num of stims!")
@@ -790,7 +936,7 @@ class P300(VisualStim):
         super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
 
     def config_color(
-        self, refresh_rate=0, stim_duration=0.1, stim_ISI=0.025, stim_round=1
+            self, refresh_rate=0, stim_duration=0.1, stim_ISI=0.025, stim_round=1
     ):
         """Configure P300 paradigm interface parameters, including screen refresh rate
         and row to column transition time interval.
@@ -855,12 +1001,12 @@ class P300(VisualStim):
             order_row_col = np.array(l_row_order_index + l_col_order_index)
             # print(order_row_col.shape)
             self.order_index[
-                (round_num * (row_num + col_num)): (
+            (round_num * (row_num + col_num)): (
                     (round_num + 1) * (row_num + col_num)
-                )
+            )
             ] = order_row_col[
                 :
-            ]  # event label
+                ]  # event label
             # print(self.order_index)
 
             # Determine row and column char status
@@ -888,11 +1034,11 @@ class P300(VisualStim):
             tmp = 0
             for col_i in col_order_index:
                 stim_colors_col[
-                    (col_i * row_num): ((col_i + 1) * row_num),
-                    int(tmp * refresh_rate * (stim_duration + stim_ISI)): int(
-                        tmp * refresh_rate * (stim_duration + stim_ISI)
-                        + refresh_rate * (stim_duration)
-                    ),
+                (col_i * row_num): ((col_i + 1) * row_num),
+                int(tmp * refresh_rate * (stim_duration + stim_ISI)): int(
+                    tmp * refresh_rate * (stim_duration + stim_ISI)
+                    + refresh_rate * (stim_duration)
+                ),
                 ] = [-1, -1, -1]
                 col_label[int(tmp * refresh_rate * (stim_duration + stim_ISI))] = 1
                 tmp += 1
@@ -901,11 +1047,11 @@ class P300(VisualStim):
             for row_i in row_order_index:
                 for col_i in range(col_num):
                     stim_colors_row[
-                        (row_i + row_num * col_i),
-                        int(tmp * refresh_rate * (stim_duration + stim_ISI)): int(
-                            tmp * refresh_rate * (stim_duration + stim_ISI)
-                            + refresh_rate * stim_duration
-                        ),
+                    (row_i + row_num * col_i),
+                    int(tmp * refresh_rate * (stim_duration + stim_ISI)): int(
+                        tmp * refresh_rate * (stim_duration + stim_ISI)
+                        + refresh_rate * stim_duration
+                    ),
                     ] = [-1, -1, -1]
                     row_label[int(tmp * refresh_rate * (stim_duration + stim_ISI))] = 1
                 tmp += 1
@@ -1050,18 +1196,18 @@ class MI(VisualStim):
         )
 
     def config_color(
-        self,
-        refresh_rate=60,
-        text_pos=(0.0, 0.0),
-        left_pos=[[-480, 0.0]],
-        right_pos=[[480, 0.0]],
-        tex_color=(1, -1, -1),
-        normal_color=[[-0.8, -0.8, 0.8]],
-        image_color=[[1, 1, 1]],
-        symbol_height=100,
-        n_Elements=1,
-        stim_length=288,
-        stim_width=162,
+            self,
+            refresh_rate=60,
+            text_pos=(0.0, 0.0),
+            left_pos=[[-480, 0.0]],
+            right_pos=[[480, 0.0]],
+            tex_color=(1, -1, -1),
+            normal_color=[[-0.8, -0.8, 0.8]],
+            image_color=[[1, 1, 1]],
+            symbol_height=100,
+            n_Elements=1,
+            stim_length=288,
+            stim_width=162,
     ):
         """Config color of stimuli.
 
@@ -1203,7 +1349,9 @@ class MI(VisualStim):
             opacities=[1],
             contrs=[-1],
         )
-#standard emotion
+
+
+# standard emotion
 class emotion(VisualStim):
     """
     Create emotion stimuli.
@@ -1307,7 +1455,7 @@ class emotion(VisualStim):
     def __init__(self, win, colorSpace="rgb", allowGUI=True):
         super().__init__(win=win, colorSpace=colorSpace, allowGUI=allowGUI)
 
-        self.tex_pos =[]
+        self.tex_pos = []
         self.tex_pos.append(os.path.join(
             os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
             "textures" + os.sep + "1-1.mkv",
@@ -1320,7 +1468,7 @@ class emotion(VisualStim):
             os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
             "textures" + os.sep + "1-6.mkv",
         ))
-        self.tex_neg =[]
+        self.tex_neg = []
         self.tex_neg.append(os.path.join(
             os.path.abspath(os.path.dirname(os.path.abspath(__file__))),
             "textures" + os.sep + "1-3.mkv",
@@ -1335,16 +1483,16 @@ class emotion(VisualStim):
         ))
 
     def config_movie(
-        self,
-        refresh_rate=60,
-        text_pos=(0.0, 0.0),
-        pos_loc=[[0.0, 50.0]],
-        neg_loc=[[0.0, 50.0]],
-        tex_color=(1, -1, -1),
-        symbol_height=100,
-        n_Elements=1,
-        stim_length=1080,
-        stim_width=768,
+            self,
+            refresh_rate=60,
+            text_pos=(0.0, 0.0),
+            pos_loc=[[0.0, 50.0]],
+            neg_loc=[[0.0, 50.0]],
+            tex_color=(1, -1, -1),
+            symbol_height=100,
+            n_Elements=1,
+            stim_length=1080,
+            stim_width=768,
     ):
         """Config color of stimuli.
 
@@ -1408,7 +1556,7 @@ class emotion(VisualStim):
             height=symbol_height,
             bold=True,
         )
-        self.image_pos_stimuli=[]
+        self.image_pos_stimuli = []
         for i in self.tex_pos:
             self.image_pos_stimuli.append(visual.MovieStim3(
                 self.win,
@@ -1430,8 +1578,6 @@ class emotion(VisualStim):
                 ori=0.0,
                 opacity=1.0,
             ))
-
-
 
 
 # standard AVEP paradigm
@@ -1551,14 +1697,14 @@ class AVEP(VisualStim):
     """
 
     def __init__(
-        self,
-        win,
-        dot_shape="circle",
-        n_rep=5,
-        duty=0.5,
-        cluster_num=1,
-        colorSpace="rgb",
-        allowGUI=True,
+            self,
+            win,
+            dot_shape="circle",
+            n_rep=5,
+            duty=0.5,
+            cluster_num=1,
+            colorSpace="rgb",
+            allowGUI=True,
     ):
         """Item class from VisualStim.
 
@@ -1661,20 +1807,20 @@ class AVEP(VisualStim):
                     width_rand = random.randint(-3, 3)
                     height_rand = random.randint(-3, 3)
                     self.stim_dot_pos[
-                        stim_i,
-                        clu_i * self.n_elements: (clu_i + 1) * self.n_elements,
-                        :,
-                        0,
+                    stim_i,
+                    clu_i * self.n_elements: (clu_i + 1) * self.n_elements,
+                    :,
+                    0,
                     ] = (
-                        dot_pos[..., 0] + width_rand
+                            dot_pos[..., 0] + width_rand
                     )
                     self.stim_dot_pos[
-                        stim_i,
-                        clu_i * self.n_elements: (clu_i + 1) * self.n_elements,
-                        :,
-                        1,
+                    stim_i,
+                    clu_i * self.n_elements: (clu_i + 1) * self.n_elements,
+                    :,
+                    1,
                     ] = (
-                        dot_pos[..., 1] + height_rand
+                            dot_pos[..., 1] + height_rand
                     )
 
     def config_dot_color(self):
@@ -1693,7 +1839,7 @@ class AVEP(VisualStim):
         self.stim_colors = stim_colors
 
     def config_color(
-        self, refresh_rate, stim_time, stim_color, sequence, stim_opacities=1, **kwargs
+            self, refresh_rate, stim_time, stim_color, sequence, stim_opacities=1, **kwargs
     ):
         """Set AVEP paradigm interface parameters, including screen refresh rate, stimulus time, and stimulus color.
 
@@ -1977,7 +2123,7 @@ class SSAVEP(VisualStim):
     """
 
     def __init__(
-        self, win, n_elements=20, n_members=8, colorSpace="rgb", allowGUI=True
+            self, win, n_elements=20, n_members=8, colorSpace="rgb", allowGUI=True
     ):
         self.n_members = n_members
         self.n_elements = n_elements
@@ -1985,14 +2131,14 @@ class SSAVEP(VisualStim):
         super().__init__(win, colorSpace, allowGUI)
 
     def config_member_pos(
-        self,
-        win,
-        radius=0.1,
-        angles=[0],
-        outter_deg=4,
-        inner_deg=1.5,
-        tex_pix=128,
-        sep_line_pix=16,
+            self,
+            win,
+            radius=0.1,
+            angles=[0],
+            outter_deg=4,
+            inner_deg=1.5,
+            tex_pix=128,
+            sep_line_pix=16,
     ):
         """
         Config color of stimuli.
@@ -2061,12 +2207,12 @@ class SSAVEP(VisualStim):
         self.sep_line_pix = sep_line_pix
 
     def config_stim(
-        self,
-        win,
-        sizes=[[0.1, 0.1]],
-        stim_color=[[1.0, 1.0, 1.0]],
-        stim_opacities=[1],
-        member_degree=None,
+            self,
+            win,
+            sizes=[[0.1, 0.1]],
+            stim_color=[[1.0, 1.0, 1.0]],
+            stim_opacities=[1],
+            member_degree=None,
     ):
         """
         Config color of stimuli.
@@ -2115,7 +2261,7 @@ class SSAVEP(VisualStim):
         )
 
     def config_ring(
-        self, win, sizes=[[0.3, 0.3]], ring_colors=[1, 1, 1], opacities=[1.0]
+            self, win, sizes=[[0.3, 0.3]], ring_colors=[1, 1, 1], opacities=[1.0]
     ):
         """
         Config color of rings around the stimuli.
@@ -2154,7 +2300,7 @@ class SSAVEP(VisualStim):
         )
 
     def config_target(
-        self, win, sizes=[[0.2, 0.2]], target_colors=[1, 0, 0], opacities=[1.0]
+            self, win, sizes=[[0.2, 0.2]], target_colors=[1, 0, 0], opacities=[1.0]
     ):
         """
         Config color of targets at the center of each stimulus.
@@ -2192,14 +2338,14 @@ class SSAVEP(VisualStim):
         )
 
     def config_flash_array(
-        self,
-        refresh_rate=60,
-        freqs=[15],
-        phases=[0],
-        codes=[[0], [1], [2], [3]],
-        stim_time_member=0.5,
-        stim_color=[1, 1, 1],
-        stimtype="sinusoid",
+            self,
+            refresh_rate=60,
+            freqs=[15],
+            phases=[0],
+            codes=[[0], [1], [2], [3]],
+            stim_time_member=0.5,
+            stim_color=[1, 1, 1],
+            stimtype="sinusoid",
     ):
         """
         Config flash sequence array of stimuli.
@@ -2239,14 +2385,14 @@ class SSAVEP(VisualStim):
         self.stimtype = stimtype
         if stimtype == "sinusoid":
             self.stim_colors_member = (
-                sinusoidal_sample(
-                    freqs=self.freqs,
-                    phases=self.phases,
-                    srate=self.refresh_rate,
-                    frames=self.stim_frames_member,
-                    stim_color=stim_color,
-                )
-                - 1
+                    sinusoidal_sample(
+                        freqs=self.freqs,
+                        phases=self.phases,
+                        srate=self.refresh_rate,
+                        frames=self.stim_frames_member,
+                        stim_color=stim_color,
+                    )
+                    - 1
             )
         self.n_sequence = np.shape(self.codes)[1]
         self.stim_time = self.stim_time_member * self.n_sequence
@@ -2259,30 +2405,30 @@ class SSAVEP(VisualStim):
             for seq_idx in range(self.n_sequence):
                 for seq_group_idx in range(len(tar_codes[seq_idx])):
                     self.stim_colors1[
-                        :,
-                        tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
-                        seq_idx,
-                        :,
+                    :,
+                    tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
+                    seq_idx,
+                    :,
                     ] = self.stim_colors_member[
                         :,
                         tar_idx * self.n_members + tar_codes[seq_idx][seq_group_idx],
                         :,
-                    ]
+                        ]
         self.stim_colors = np.concatenate(
             [self.stim_colors1[:, :, i, :] for i in range(self.n_sequence)], axis=0
         )
 
     def config_color(
-        self,
-        win,
-        refresh_rate=60,
-        freqs=[15],
-        phases=[0],
-        codes=[[0], [1], [2], [3]],
-        stim_time_member=0.5,
-        stim_color=[1.0, 1.0, 1.0],
-        stimtype="sinusoid",
-        sizes=[0.1, 0.1],
+            self,
+            win,
+            refresh_rate=60,
+            freqs=[15],
+            phases=[0],
+            codes=[[0], [1], [2], [3]],
+            stim_time_member=0.5,
+            stim_color=[1.0, 1.0, 1.0],
+            stimtype="sinusoid",
+            sizes=[0.1, 0.1],
     ):
         """
         Config color of stimuli.
@@ -2442,20 +2588,20 @@ class SSAVEP(VisualStim):
         win.clearBuffer()
 
     def create_elements(
-        self,
-        win,
-        units="pix",
-        elementTex=None,
-        elementMask=None,
-        nElements=1,
-        frames=1,
-        sizes=[[0.1, 0.1]],
-        xys=[[0, 0]],
-        oris=[0],
-        colors=[[1, 1, 1]],
-        contrs=[1],
-        opacities=[1],
-        texRes=48,
+            self,
+            win,
+            units="pix",
+            elementTex=None,
+            elementMask=None,
+            nElements=1,
+            frames=1,
+            sizes=[[0.1, 0.1]],
+            xys=[[0, 0]],
+            oris=[0],
+            colors=[[1, 1, 1]],
+            contrs=[1],
+            opacities=[1],
+            texRes=48,
     ):
         """
         create the specific elements.
@@ -2617,20 +2763,20 @@ class GetPlabel_MyTherad:
 
 
 def paradigm(
-    VSObject,
-    win,
-    bg_color,
-    display_time=1.0,
-    index_time=1.0,
-    rest_time=0.5,
-    response_time=2,
-    image_time=2,
-    port_addr=9045,
-    nrep=1,
-    pdim="ssvep",
-    lsl_source_id=None,
-    online=None,
-    device_type="NeuroScan",
+        VSObject,
+        win,
+        bg_color,
+        display_time=1.0,
+        index_time=1.0,
+        rest_time=0.5,
+        response_time=2,
+        image_time=2,
+        port_addr=9045,
+        nrep=1,
+        pdim="ssvep",
+        lsl_source_id=None,
+        online=None,
+        device_type="NeuroScan",
 ):
     """
     The classical paradigm is implemented, the task flow is defined, the ' q '
@@ -2706,11 +2852,11 @@ def paradigm(
     inlet = False
     if online:
         if (
-            pdim == "ssvep"
-            or pdim == "p300"
-            or pdim == "con-ssvep"
-            or pdim == "avep"
-            or pdim == "ssavep"
+                pdim == "ssvep"
+                or pdim == "p300"
+                or pdim == "con-ssvep"
+                or pdim == "avep"
+                or pdim == "ssavep"
         ):
             VSObject.text_response.text = copy(VSObject.reset_res_text)
             VSObject.text_response.pos = copy(VSObject.reset_res_pos)
@@ -2802,7 +2948,7 @@ def paradigm(
                 samples, timestamp = inlet.pull_sample()
                 predict_id = int(samples[0]) - 1  # online predict id
                 VSObject.symbol_text = (
-                    VSObject.symbol_text + VSObject.symbols[predict_id]
+                        VSObject.symbol_text + VSObject.symbols[predict_id]
                 )
                 res_text_pos = (
                     res_text_pos[0] + VSObject.symbol_height / 3,
@@ -2906,7 +3052,7 @@ def paradigm(
                 samples, timestamp = inlet.pull_sample()
                 predict_id = int(samples[0]) - 1  # online predict id
                 VSObject.symbol_text = (
-                    VSObject.symbol_text + VSObject.symbols[predict_id]
+                        VSObject.symbol_text + VSObject.symbols[predict_id]
                 )
                 res_text_pos = (
                     res_text_pos[0] + VSObject.symbol_height / 3,
@@ -3024,7 +3170,7 @@ def paradigm(
                 samples, timestamp = inlet.pull_sample()
                 predict_id = int(samples[0]) - 1  # online predict id
                 VSObject.symbol_text = (
-                    VSObject.symbol_text + VSObject.symbols[predict_id]
+                        VSObject.symbol_text + VSObject.symbols[predict_id]
                 )
                 res_text_pos = (
                     res_text_pos[0] + VSObject.symbol_height / 3,
@@ -3329,7 +3475,7 @@ def paradigm(
                 samples, timestamp = inlet.pull_sample()
                 predict_id = int(samples[0]) - 1  # online predict id
                 VSObject.symbol_text = (
-                    VSObject.symbol_text + VSObject.symbols[predict_id]
+                        VSObject.symbol_text + VSObject.symbols[predict_id]
                 )
                 res_text_pos = (
                     res_text_pos[0] + VSObject.symbol_height / 3,
@@ -3363,8 +3509,8 @@ def paradigm(
         # episode 1: display speller interface
         iframe = 0
         while iframe < int(fps * display_time):
-            #VSObject.normal_left_stimuli.draw()
-            #VSObject.normal_right_stimuli.draw()
+            # VSObject.normal_left_stimuli.draw()
+            # VSObject.normal_right_stimuli.draw()
             iframe += 1
             win.flip()
 
@@ -3380,24 +3526,23 @@ def paradigm(
             # initialise index position
             id = int(trial["id"])
             if id % 2 == 0:
-                image_stimuli = VSObject.image_pos_stimuli[int(id/2)]
+                image_stimuli = VSObject.image_pos_stimuli[int(id / 2)]
             else:
-                image_stimuli = VSObject.image_neg_stimuli[int(id/2)]
+                image_stimuli = VSObject.image_neg_stimuli[int(id / 2)]
             # phase I: prepare
             if index_time != 0:
                 iframe = 0
                 while iframe < int(fps * index_time):
-                    VSObject.start_stimulus.setText("start in %d" % (index_time-iframe//fps))
+                    VSObject.start_stimulus.setText("start in %d" % (index_time - iframe // fps))
                     VSObject.start_stimulus.draw()
-                    #VSObject.normal_left_stimuli.draw()
-                    #VSObject.normal_right_stimuli.draw()
+                    # VSObject.normal_left_stimuli.draw()
+                    # VSObject.normal_right_stimuli.draw()
                     iframe += 1
                     win.flip()
 
-
             # phase I: target stimulating
             iframe = 0
-            image_stimuli.play()
+            #image_stimuli.play()
             while iframe < int(fps * image_time):
                 image_stimuli.draw()
                 if iframe == 0 and port and online:
@@ -3406,7 +3551,6 @@ def paradigm(
                     VSObject.win.callOnFlip(port.setData, id + 1)
                 if iframe == port_frame and port:
                     port.setData(0)
-
 
                 iframe += 1
                 win.flip()
@@ -3417,8 +3561,7 @@ def paradigm(
                 iframe = 0
                 while iframe < int(fps * rest_time):
                     VSObject.rest_stimulus.draw()
-                    #VSObject.normal_left_stimuli.draw()
-                    #VSObject.normal_right_stimuli.draw()
+                    # VSObject.normal_left_stimuli.draw()
+                    # VSObject.normal_right_stimuli.draw()
                     iframe += 1
                     win.flip()
-

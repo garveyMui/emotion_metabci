@@ -1,3 +1,5 @@
+import datetime
+
 import serial
 from psychopy import parallel
 import numpy as np
@@ -69,6 +71,13 @@ class NeuroScanPort:
             self.port.write([int(label)])
         else:
             self.port.setData(int(label))
+class TxtPort:
+
+    def __init__(self, port_addr):
+        self.addr=open(port_addr,'a')
+
+    def setData(self, label):
+        print(int(label),datetime.datetime.now(),file=self.addr)
 
 
 class NeuraclePort:

@@ -211,6 +211,18 @@ class Experiment:
         # fixed supplied arguments
         self.paradigms[name] = partial(func, *args, **kwargs)
 
+    def register_paradigm_new(self, name, paradigm):
+        """Create Paradigms, which allows multiple paradigms to be created at the same time.
+
+        Parameters:
+            name: str
+                Paradigm name.
+            func:
+                Paradigm realization function.
+
+        """
+        # fixed supplied arguments
+        self.paradigms[name] = paradigm.forward
     def unregister_paradigm(self, name):
         """Clear the created paradigm with the name "name".
 
