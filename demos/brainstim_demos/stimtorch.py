@@ -2,10 +2,10 @@ import math
 
 from psychopy import monitors
 import numpy as np
-from metabci.brainstim.paradigm import (paradigm,VisualStim,emotion)
+from metabci.brainstim.paradigm import (VisualStim)
 from metabci.brainstim import pystim as ps
 from metabci.brainstim.framework import Experiment
-from psychopy.tools.monitorunittools import deg2pix
+
 class pro_emotion(VisualStim):
     def __init__(self,win):
         super().__init__(win=win)
