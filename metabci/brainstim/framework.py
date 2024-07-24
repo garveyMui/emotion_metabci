@@ -184,8 +184,11 @@ class Experiment:
             )
         )
         event.clearEvents()
-        event.globalKeys.add(key="escape", func=self.closeEvent)
+        event.globalKeys.add(key="q", func=self.quit)
 
+    def quit(self):
+        self.current_win.close()
+        return
     def closeEvent(self):
         """Close operation after run."""
         logging.warning(
@@ -376,11 +379,10 @@ class Experiment:
         try:
             while True:
                 t = trialClock.getTime()
-                keys = event.getKeys(keyList=["q", "up", "down", "return"])
+                keys = event.getKeys(keyList=["up", "down", "return"])
 
                 # exit program
-                if "q" in keys:
-                    break
+
 
                 # select paradigm
                 names = list(self.paradigms.keys())
@@ -408,7 +410,6 @@ class Experiment:
                         fps_textstim.text = "%i fps" % win.fps()
                         lastFPSupdate += 1
                     fps_textstim.draw()
-
                 win.flip()
 
         except Exception as e:

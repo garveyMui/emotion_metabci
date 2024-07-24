@@ -2,19 +2,24 @@ import math
 
 from psychopy import monitors
 import numpy as np
-from metabci.brainstim.paradigm import (paradigm,scene,Text,Movie,VisualStim,emotion,CountDown)
+from metabci.brainstim.paradigm import (paradigm,VisualStim,emotion)
+from metabci.brainstim import pystim as ps
 from metabci.brainstim.framework import Experiment
 from psychopy.tools.monitorunittools import deg2pix
 class pro_emotion(VisualStim):
     def __init__(self,win):
         super().__init__(win=win)
-        self.scene = scene()
-        self.scene.add_module(Text(self.win,"start",time=5))
-        self.scene.add_module(CountDown(self.win,time=5,start=0,label=-1,pos=[0.0,200.0]))
-        self.scene.add_module(Movie(self.win,"C:\\Users\\405\\PycharmProjects\\emotion_metabci\\metabci\\brainstim\\textures\\1-1.mkv",time=5,label=1))
-        self.scene.add_module(Text(self.win,"rest", time=5))
+        movie1=ps.Movie(self.win,"metabci/brainstim/textures/1-3.mkv",time=5,label=1)
+        movie2=ps.Movie(self.win,"metabci/brainstim/textures/1-4.mkv",time=5,label=2)
+        pic1=ps.Image(self.win,"metabci/brainstim/textures/left_hand.png",time=5,label=3)
+        self.scene = ps.scene()
+        self.scene.add_module("start",ps.Text(self.win,"start",time=1))
+        self.scene.add_module("start count down",ps.CountDown(self.win,time=1,start=0,label=-1,pos=[0.0,200.0]))
+        self.scene.add_module("test",ps.StimArray([movie1,movie2,pic1],method="sequential"))
+        self.scene.add_module("rest",ps.Text(self.win,"rest", time=3))
     def forward(self,win):
-        self.scene.run(win,bg_color=np.array([-1, -1, -1]),device_type="Txt",port_addr="out.txt")
+        for i in range(3):
+            self.scene.run(win,bg_color=np.array([-1, -1, -1]),device_type="Txt",port_addr="out.txt")
 if __name__ == "__main__":
     mon = monitors.Monitor(
         name="secondary_monitor",
@@ -39,38 +44,6 @@ if __name__ == "__main__":
         use_fbo=False,
     )
     win = ex.get_window()
-    """
-        emotion
-        """
-    basic_emotion = emotion(win)
-    basic_emotion.config_movie()
-    bg_color = np.array([-1, -1, -1])  # 背景颜色
-    display_time = 1  # 范式开始1s的warm时长
-    index_time = 5  # 提示时长，转移视线
-    rest_time = 30  # 提示后的休息时长
-    image_time = 120  # 想象时长
-    response_time = 2  # 在线反馈
-    # port_addr = "COM8"  #  0xdefc                                  # 采集主机端口
-    nrep = 5  # block数目
-    lsl_source_id = "meta_online_worker"  # source id
-    online = False  # True                                       # 在线实验的标志
-    ex.register_paradigm(
-        "basic emotion",
-        paradigm,
-        VSObject=basic_emotion,
-        bg_color=bg_color,
-        display_time=display_time,
-        index_time=index_time,
-        rest_time=rest_time,
-        response_time=response_time,
-        # port_addr=port_addr,
-        port_addr=None,
-        nrep=nrep,
-        image_time=image_time,
-        pdim="emotion",
-        lsl_source_id=lsl_source_id,
-        online=online,
-    )
 
     """
     emotion pro

@@ -8,7 +8,6 @@ import string
 import numpy as np
 from math import pi
 from psychopy import data, visual, event
-from psychopy.visual.movie3 import MovieStim3
 from psychopy.visual.circle import Circle
 from pylsl.pylsl import StreamInlet, resolve_byprop
 from .utils import NeuroScanPort, NeuraclePort, TxtPort, _check_array_like
@@ -17,154 +16,9 @@ from copy import copy
 import random
 from scipy import signal
 from PIL import Image
-import datetime
-import time
 
 
 # prefunctions
-class item:
-    def __init__(self):
-        self.st=-1
-        self.en=-1
-        self.label = 0
-        self.time=0
-
-
-    def start(self):
-        return
-
-    def end(self):
-        return
-
-
-class scene:
-    def __init__(self):
-        self.time = 0
-        self.modules = []
-
-    def add_module(self, mod):
-        if mod.st < 0:
-            if(not self.modules):
-                mod.st=0
-            else:
-                mod.st=self.modules[-1].en
-        if mod.en < 0:
-            mod.en=mod.st + mod.time
-        if mod.en > self.time:
-            self.time = mod.en
-        self.modules.append(mod)
-
-    def run(self, win=None,
-            bg_color=np.array([-1, -1, -1]),
-            port_addr=9045,
-            device_type="Txt", ):
-        if not _check_array_like(bg_color, 3):
-            raise ValueError("bg_color should be 3 elements array-like object.")
-
-        win.color = bg_color
-
-        if device_type == "NeuroScan":
-            port = NeuroScanPort(port_addr, use_serial=True) if port_addr else None
-        elif device_type == "Neuracle":
-            port = NeuraclePort(port_addr) if port_addr else None
-        elif device_type == "Txt":
-            port = TxtPort(port_addr) if port_addr else None
-        else:
-            raise KeyError(
-                "Unknown device type: {}, please check your input".format(device_type)
-            )
-
-        # start routine
-        # episode 1: display speller interface
-        start = datetime.datetime.now()
-        while (datetime.datetime.now() - start).total_seconds() < self.time:
-            now=(datetime.datetime.now() - start).total_seconds()
-            win.flip()
-            for item in self.modules:
-                if now > item.st and now < item.en:
-                    if item.st!=-1:
-                        item.st=-1
-                        item.start()
-                        if port and item.label != -1:
-                            port.setData(item.label)
-                    item.draw()
-                if item.en!=-1 and now > item.en:
-                    item.en=-1
-                    item.end()
-
-
-
-
-class Text(visual.TextStim, item):
-    def __init__(self, win, text="Text", font="Times New Roman", pos=(0.0, 0.0), color=(1, -1, -1), size=100, time=5,
-                 label=0,start=-1,end=-1):
-        super().__init__(win=win,
-                         text=text,
-                         font=font,
-                         pos=pos,
-                         color=color,
-                         units="pix",
-                         height=size,
-                         bold=True )
-        self.st = start
-        self.en = end
-        self.label = label
-        self.time = time
-
-    def start(self):
-        return
-
-    def end(self):
-        return
-
-class CountDown(visual.TextStim, item):
-    def __init__(self, win, font="Times New Roman", pos=(0.0, 0.0), color=(1, -1, -1), size=100, time=5,
-                 label=0,start=-1,end=-1):
-        super().__init__(text=str(time),
-                         win=win,
-                         font=font,
-                         pos=pos,
-                         color=color,
-                         units="pix",
-                         height=size,
-                         bold=True, )
-        self.st = start
-        self.en = end
-        self.label = label
-        self.time = time
-        self.timestamp=0
-
-    def start(self):
-        self.timestamp=datetime.datetime.now()
-        return
-    def draw(self,win=None):
-        self.text=str(int(self.time-(datetime.datetime.now()-self.timestamp).total_seconds()))
-        super().draw(win)
-    def end(self):
-        return
-
-class Movie(MovieStim3, item):
-    def __init__(self, win, file, pos=[0.0, 0.0], size=[1024, 768],start=-1,end=-1, time=5, label=0):
-        super().__init__(
-            win=win,
-            units="pix",
-            filename=file,
-            size=size,
-            pos=np.array(pos),
-            ori=0.0,
-            opacity=1.0,
-        )
-        self.st = start
-        self.en = end
-        self.label = label
-        self.time = time
-
-    def start(self):
-        self.play()
-
-    def end(self):
-        self.pause()
-        self.seek(0.0)
 
 
 def sinusoidal_sample(freqs, phases, srate, frames, stim_color):
