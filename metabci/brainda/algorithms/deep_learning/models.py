@@ -95,8 +95,30 @@ class EEG_model():
     def train(self):
         pass
 
-    def predict(self):
-        pass
+    def predict(self, df_data):
+        '''
+            utils.data_process_repurpose_virtual_screening
+            pd.DataFrame
+        '''
+        print('predicting...')
+        info = data_process_loader(df_data.index.values, df_data.Label.values, df_data, **self.config)
+        self.model.to(self.device)
+        params = {'batch_size': self.config['batch_size'],
+                  'shuffle': False,
+                  'num_workers': self.config['num_workers'],
+                  'drop_last': False,
+                  'sampler': SequentialSampler(info)}
+
+        if (self.drug_encoding == "MPNN"):
+            params['collate_fn'] = mpnn_collate_func
+        elif self.drug_encoding in ['DGL_GCN', 'DGL_NeuralFP', 'DGL_GIN_AttrMasking', 'DGL_GIN_ContextPred',
+                                    'DGL_AttentiveFP']:
+            params['collate_fn'] = dgl_collate_func
+
+        generator = data.DataLoader(info, **params)
+
+        score = self.test_(generator, self.model, repurposing_mode=True)
+        return score
 
     def save_model(self, path_dir):
         if not os.path.exists(path_dir):
@@ -104,5 +126,22 @@ class EEG_model():
         torch.save(self.model.state_dict(), path_dir + '/model.pt')
         save_dict(path_dir, self.config)
 
-    def load_model(self):
-        pass
+    def load_pretrained(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        state_dict = torch.load(path, map_location=torch.device('cpu'))
+        # to support training from multi-gpus data-parallel:
+
+        if next(iter(state_dict))[:7] == 'module.':
+            # the pretrained model is from data-parallel module
+            from collections import OrderedDict
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k[7:]  # remove `module.`
+                new_state_dict[name] = v
+            state_dict = new_state_dict
+
+        self.model.load_state_dict(state_dict)
+
+        self.binary = self.config['binary']
