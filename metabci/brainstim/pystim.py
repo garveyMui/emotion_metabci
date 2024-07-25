@@ -93,16 +93,35 @@ class scene:
 
 
 class Text(visual.TextStim, item):
-    def __init__(self, win, text="Text", font="Times New Roman", pos=(0.0, 0.0), color=(1, -1, -1), size=100, time=5,
-                 label=0,start=-1,end=-1):
+    def __init__(self, win,
+                 text="Text",
+                 font="Times New Roman",
+                 pos=(0.0, 0.0),
+                 color=(1, -1, -1),
+                 height=100,
+                 opacity=1.0,
+                 contrast=1.0,
+                 ori=0.0,
+                 antialias=True,
+                 bold=False,
+                 italic=False,
+                 time=5,
+                 label=0,
+                 start=-1,
+                 end=-1):
         super().__init__(win=win,
                          text=text,
                          font=font,
                          pos=pos,
                          color=color,
                          units="pix",
-                         height=size,
-                         bold=True )
+                         height=height,
+                         opacity=opacity,
+                         contrast=contrast,
+                         ori=ori,
+                         antialias=antialias,
+                         bold=bold,
+                         italic=italic)
         self.st = start
         self.en = end
         self.label = label
@@ -256,6 +275,35 @@ class StimArray(item):
         self.label=-1
         if self.method=="sequential":
             self.iter=(self.iter+1) % len(self.stim_list)
+
+class StimFlash(item):
+    def __init__(self,
+                 stim,
+                 color=[(-1.,-1.,-1.),(-0.2,-0.2,-0.2)],
+                 freq=1.0,
+                 start=-1,
+                 end=-1,
+                 time=5,
+                 label=0):
+        self.stim=stim
+        self.color=color
+        self.time_interval=0.5/freq
+        self.st = start
+        self.en = end
+        self.label = label
+        self.time = time
+        self.timestamp = 0
+
+    def start(self):
+        self.timestamp = datetime.datetime.now()
+        return
+    def draw(self):
+        self.stim.setColor(self.color[int((datetime.datetime.now()-self.timestamp).total_seconds()/self.time_interval)%2])
+        self.stim.draw()
+        return
+    def end(self):
+        return
+
 
 
 

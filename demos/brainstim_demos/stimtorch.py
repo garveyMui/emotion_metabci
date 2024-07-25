@@ -11,16 +11,42 @@ class pro_emotion(VisualStim):
         super().__init__(win=win)
         movie1=ps.Movie(self.win,"metabci/brainstim/textures/1-3.mkv",time=5,label=1)
         movie2=ps.Movie(self.win,"metabci/brainstim/textures/1-4.mkv",time=5,label=2)
-        pic1=ps.Image(self.win,"metabci/brainstim/textures/left_hand.png",time=5,label=3)
         self.scene = ps.scene()
         self.scene.add_module("start",ps.Text(self.win,"start",time=1))
         self.scene.add_module("start count down",ps.CountDown(self.win,time=1,start=0,label=-1,pos=[0.0,200.0]))
-        self.scene.add_module("test",ps.StimArray([movie1,movie2,pic1],method="random"))
+        self.scene.add_module("test",ps.StimArray([movie1,movie2],method="random"))
         self.scene.add_module("rest",ps.Text(self.win,"rest", time=3))
     def forward(self,win):
         for i in range(3):
             self.scene.run(win,bg_color=np.array([-1, -1, -1]),device_type="Txt",port_addr="out.txt")
 
+class pro_MI(VisualStim):
+    def __init__(self,win):
+        super().__init__(win=win)
+        left=ps.StimFlash(ps.Image(self.win,"metabci/brainstim/textures/left_hand.png",pos=(-480.,0.),size=(288,288)),freq=1.,label=1)
+        right = ps.StimFlash(ps.Image(self.win, "metabci/brainstim/textures/right_hand.png",pos=(480.,0.),size=(288,288)), freq=1., label=2)
+        self.scene = ps.scene()
+        self.scene.add_module("start",ps.Text(self.win,"prepare",time=3))
+        self.scene.add_module("start count down",ps.CountDown(self.win,time=3,start=0,label=-1,pos=[0.0,200.0]))
+        self.scene.add_module('back_left',ps.Image(self.win,"metabci/brainstim/textures/left_hand.png",
+                                                   color=(-0.2,-0.2,-0.2),
+                                                   pos=(-480.,0.),
+                                                   size=(288,288),
+                                                   label=-1,
+                                                   time=10))
+        self.scene.add_module('back_right', ps.Image(self.win, "metabci/brainstim/textures/right_hand.png",
+                                                    color=(-0.2, -0.2, -0.2),
+                                                    pos=(480., 0.),
+                                                    size=(288, 288),
+                                                    label=-1,
+                                                    start=3,
+                                                    time=10))
+        self.scene.add_module("test",ps.StimArray([left,right],method="random",start=5,time=4))
+        self.scene.add_module("imagine", ps.Text(self.win, "imagine", time=4))
+        self.scene.add_module("rest",ps.Text(self.win,"rest", time=5))
+    def forward(self,win):
+        for i in range(3):
+            self.scene.run(win,bg_color=np.array([-1, -1, -1]),device_type="Txt",port_addr="out.txt")
 
 if __name__ == "__main__":
     mon = monitors.Monitor(
@@ -51,10 +77,12 @@ if __name__ == "__main__":
     emotion pro
     """
     pro_emotion = pro_emotion(win=win)
+    pro_MI=pro_MI(win=win)
     #base_emotion = base_emotion(win=win, film="demos/brainstim_demos/emotion.xlsx")
 
 
                                  # 在线实验的标志
     ex.register_paradigm_new("pro emotion",pro_emotion)
+    ex.register_paradigm_new("pro_mi",pro_MI)
 
     ex.run()
