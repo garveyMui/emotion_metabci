@@ -243,7 +243,7 @@ class StimArray(item):
         if len(self.stim_list)==0:
             raise ValueError("Stim List is empty.")
         if self.method=="random":
-            self.iter=random.randint(0,len(self.stim_list))
+            self.iter=random.randint(0,len(self.stim_list)-1)
         self.label=self.stim_list[self.iter].label
 
         self.stim_list[self.iter].start()

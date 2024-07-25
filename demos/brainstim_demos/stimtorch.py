@@ -15,11 +15,13 @@ class pro_emotion(VisualStim):
         self.scene = ps.scene()
         self.scene.add_module("start",ps.Text(self.win,"start",time=1))
         self.scene.add_module("start count down",ps.CountDown(self.win,time=1,start=0,label=-1,pos=[0.0,200.0]))
-        self.scene.add_module("test",ps.StimArray([movie1,movie2,pic1],method="sequential"))
+        self.scene.add_module("test",ps.StimArray([movie1,movie2,pic1],method="random"))
         self.scene.add_module("rest",ps.Text(self.win,"rest", time=3))
     def forward(self,win):
         for i in range(3):
             self.scene.run(win,bg_color=np.array([-1, -1, -1]),device_type="Txt",port_addr="out.txt")
+
+
 if __name__ == "__main__":
     mon = monitors.Monitor(
         name="secondary_monitor",
