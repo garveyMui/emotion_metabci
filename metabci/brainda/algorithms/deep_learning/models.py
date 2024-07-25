@@ -2,14 +2,21 @@ import DeepPurpose.DTI as models
 from DeepPurpose.utils import *
 from DeepPurpose.dataset import *
 from DeepPurpose.encoders import *
+from convca import *
+from deepnet import *
+from eegnet import *
+from guney_net import *
+from pretraining import *
+from shallownet import *
+from encoders import *
 
 
-class Classifier(nn.Sequential):
+class Classifier(nn.Module):
     def __init__(self, model, **config):
         super(Classifier, self).__init__()
 
         self.input_dim = config['input_dim']
-        self.hidden_dims = config['cls_hidden_dims']
+        self.hidden_dims = config['hidden_dims']
 
         layer_size = len(self.hidden_dims) + 1
         dims = [self.input_dim] + self.hidden_dims + [1]
@@ -29,7 +36,6 @@ class Classifier(nn.Sequential):
 
         return v
 
-
 def model_initialize(**config):
     model = EEG_model(**config)
     return model
@@ -41,22 +47,31 @@ def model_pretrained(path_dir = None, model = None):
     model = EEG_model(**config)
     model.load_pretrained(path_dir + '/model.pt')
     return model
+
 class EEG_model():
     def __init__(self, **config):
         encoding = config['encoding']
 
-        if encoding == 'Morgan' or encoding == 'ErG' or encoding == 'Pubchem' or encoding == 'Daylight' or encoding == 'rdkit_2d_normalized' or encoding == 'ESPF':
-            # Future : support multiple encoding scheme for static input
-            self.encoding = MLP(config['input_dim_drug'], config['hidden_dim_drug'], config['mlp_hidden_dims_drug'])
-        elif encoding == 'CNN':
-            self.encoding = CNN('drug', **config)
-        elif encoding == 'CNN_RNN':
-            self.encoding = CNN_RNN('drug', **config)
-        elif encoding == 'Transformer':
-            self.encoding = transformer('drug', **config)
-        elif encoding == "eegnet":
-            # to complete relevant code
-            self.encoding = EEG_model(**config)
+        if encoding == 'convca':
+            self.encoding = ConvCA(**config)
+        elif encoding == 'deepnet':
+            self.encoding = Deep4Net(**config)
+        elif encoding == 'eegnet':
+            self.encoding = EEGNet(**config)
+        elif encoding == "guney_net":
+            self.encoding = GuneyNet(**config)
+        elif encoding == "pretraining":
+            self.encoding = PreTraing(**config)
+        elif encoding == "shallownet":
+            self.encoding = ShallowNet(**config)
+        elif encoding == "transformer":
+            self.encoding = transformer(**config)
+        elif encoding == "CNN":
+            self.encoding = CNN(**config)
+        elif encoding == "CNN_RNN":
+            self.encoding = CNN_RNN(**config)
+        elif encoding == "MLP":
+            self.encoding = MLP(config['input_dim'], config['hidden_dim'], config['mlp_hidden_dims'])
         else:
             raise AttributeError('Please use one of the available encoding method.')
 
@@ -89,15 +104,6 @@ class EEG_model():
         y_label = []
         model.eval()
         for i, (v, label) in enumerate(data_generator):
-            if self.encoding in ["MPNN", 'Transformer', 'DGL_GCN', 'DGL_NeuralFP', 'DGL_GIN_AttrMasking',
-                                      'DGL_GIN_ContextPred', 'DGL_AttentiveFP']:
-                v = v
-            else:
-                v = v.float().to(self.device)
-            if self.encoding == 'Transformer':
-                v = v
-            else:
-                v = v.float().to(self.device)
             score = self.model(v)
             if self.binary:
                 m = torch.nn.Sigmoid()
@@ -119,19 +125,16 @@ class EEG_model():
             if test:
                 roc_auc_file = os.path.join(self.result_folder, "roc-auc.jpg")
                 plt.figure(0)
-                roc_curve(y_pred, y_label, roc_auc_file, self.drug_encoding + '_' + self.target_encoding)
+                roc_curve(y_pred, y_label, roc_auc_file, self.encoding)
                 plt.figure(1)
                 pr_auc_file = os.path.join(self.result_folder, "pr-auc.jpg")
-                prauc_curve(y_pred, y_label, pr_auc_file, self.drug_encoding + '_' + self.target_encoding)
+                prauc_curve(y_pred, y_label, pr_auc_file, self.encoding)
 
-            return roc_auc_score(y_label, y_pred), average_precision_score(y_label, y_pred), f1_score(y_label,
-                                                                                                      outputs), log_loss(
-                y_label, outputs), y_pred
+            return roc_auc_score(y_label, y_pred), average_precision_score(y_label, y_pred), f1_score(y_label,outputs), log_loss(y_label, outputs), y_pred
         else:
             if repurposing_mode:
                 return y_pred
-            return mean_squared_error(y_label, y_pred), pearsonr(y_label, y_pred)[0], pearsonr(y_label, y_pred)[
-                1], concordance_index(y_label, y_pred), y_pred, loss
+            return mean_squared_error(y_label, y_pred), pearsonr(y_label, y_pred)[0], pearsonr(y_label, y_pred)[1], concordance_index(y_label, y_pred), y_pred, loss
 
     def train(self, train, val=None, test=None, verbose=True):
         if len(train.Label.unique()) == 2:
@@ -170,14 +173,8 @@ class EEG_model():
                   'shuffle': True,
                   'num_workers': self.config['num_workers'],
                   'drop_last': False}
-        if (self.encoding == "MPNN"):
-            params['collate_fn'] = mpnn_collate_func
-        elif self.encoding in ['DGL_GCN', 'DGL_NeuralFP', 'DGL_GIN_AttrMasking', 'DGL_GIN_ContextPred',
-                                    'DGL_AttentiveFP']:
-            params['collate_fn'] = dgl_collate_func
 
-        training_generator = data.DataLoader(
-            data_process_loader(train.index.values, train.Label.values, train, **self.config), **params)
+        training_generator = data.DataLoader(data_process_loader(train.index.values, train.Label.values, train, **self.config), **params)
         if val is not None:
             validation_generator = data.DataLoader(
                 data_process_loader(val.index.values, val.Label.values, val, **self.config), **params)
@@ -190,13 +187,7 @@ class EEG_model():
                            'drop_last': False,
                            'sampler': SequentialSampler(info)}
 
-            if (self.encoding == "MPNN"):
-                params_test['collate_fn'] = mpnn_collate_func
-            elif self.encoding in ['DGL_GCN', 'DGL_NeuralFP', 'DGL_GIN_AttrMasking', 'DGL_GIN_ContextPred',
-                                        'DGL_AttentiveFP']:
-                params_test['collate_fn'] = dgl_collate_func
-            testing_generator = data.DataLoader(
-                data_process_loader(test.index.values, test.Label.values, test, **self.config), **params_test)
+            testing_generator = data.DataLoader(data_process_loader(test.index.values, test.Label.values, test, **self.config), **params_test)
 
         # early stopping
         if self.binary:
@@ -220,17 +211,6 @@ class EEG_model():
         iteration_loss = 0
         for epo in range(train_epoch):
             for i, (v, label) in enumerate(training_generator):
-                if self.target_encoding == 'Transformer':
-                    v = v
-                else:
-                    v = v.float().to(self.device)
-                if self.drug_encoding in ["MPNN", 'Transformer', 'DGL_GCN', 'DGL_NeuralFP', 'DGL_GIN_AttrMasking',
-                                          'DGL_GIN_ContextPred', 'DGL_AttentiveFP']:
-                    v = v
-                else:
-                    v = v.float().to(self.device)
-                # score = self.model(v_d, v_p.float().to(self.device))
-
                 score = self.model(v)
                 label = Variable(torch.from_numpy(np.array(label)).float()).to(self.device)
 
@@ -352,10 +332,6 @@ class EEG_model():
             writer.close()
 
     def predict(self, df_data):
-        '''
-            utils.data_process_repurpose_virtual_screening
-            pd.DataFrame
-        '''
         print('predicting...')
         info = data_process_loader(df_data.index.values, df_data.Label.values, df_data, **self.config)
         self.model.to(self.device)
@@ -364,12 +340,6 @@ class EEG_model():
                   'num_workers': self.config['num_workers'],
                   'drop_last': False,
                   'sampler': SequentialSampler(info)}
-
-        if (self.drug_encoding == "MPNN"):
-            params['collate_fn'] = mpnn_collate_func
-        elif self.drug_encoding in ['DGL_GCN', 'DGL_NeuralFP', 'DGL_GIN_AttrMasking', 'DGL_GIN_ContextPred',
-                                    'DGL_AttentiveFP']:
-            params['collate_fn'] = dgl_collate_func
 
         generator = data.DataLoader(info, **params)
 
