@@ -53,17 +53,29 @@ class EEG_model():
         encoding = config['encoding']
 
         if encoding == 'convca':
-            self.encoding = ConvCA(**config)
+            self.encoding = ConvCA(n_channels=config['n_channels'],
+                                   n_samples=config['n_samples'],
+                                   n_classes=config['n_classes'])
         elif encoding == 'deepnet':
-            self.encoding = Deep4Net(**config)
+            self.encoding = Deep4Net(n_channels=config['n_channels'],
+                                     n_samples=config['n_samples'],
+                                     n_classes=config['n_classes'])
         elif encoding == 'eegnet':
-            self.encoding = EEGNet(**config)
+            self.encoding = EEGNet(n_channels=config['n_channels'],
+                                   n_samples=config['n_samples'],
+                                   n_classes=config['n_classes'])
         elif encoding == "guney_net":
-            self.encoding = GuneyNet(**config)
+            self.encoding = GuneyNet(n_channels=config['n_channels'],
+                                     n_samples=config['n_samples'],
+                                     n_classes=config['n_classes'],
+                                     n_bands=config['n_bands'])
         elif encoding == "pretraining":
-            self.encoding = PreTraing(**config)
+            self.encoding = PreTraining(target_n_class=config['target_n_class'],
+                                        size_before_classification=config['size_before_classification'])
         elif encoding == "shallownet":
-            self.encoding = ShallowNet(**config)
+            self.encoding = ShallowNet(n_channels=config['n_channels'],
+                                       n_samples=config['n_samples'],
+                                       n_classes=config['n_classes'])
         elif encoding == "transformer":
             self.encoding = transformer(**config)
         elif encoding == "CNN":
@@ -71,7 +83,9 @@ class EEG_model():
         elif encoding == "CNN_RNN":
             self.encoding = CNN_RNN(**config)
         elif encoding == "MLP":
-            self.encoding = MLP(config['input_dim'], config['hidden_dim'], config['mlp_hidden_dims'])
+            self.encoding = MLP(input_dim=config['input_dim'],
+                                output_dim=config['output_dim'],
+                                hidden_dims_lst=config['hidden_dims_lst'])
         else:
             raise AttributeError('Please use one of the available encoding method.')
 
