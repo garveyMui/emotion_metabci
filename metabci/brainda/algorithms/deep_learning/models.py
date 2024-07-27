@@ -385,3 +385,4 @@ class EEG_model():
         self.model.load_state_dict(state_dict)
 
         self.binary = self.config['binary']
+        #test
