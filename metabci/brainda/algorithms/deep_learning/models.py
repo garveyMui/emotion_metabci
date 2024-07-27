@@ -11,7 +11,7 @@ from shallownet import *
 from encoders import *
 
 
-class Classifier(nn.Module):
+class Classifier(nn.Sequential):
     def __init__(self, model, **config):
         super(Classifier, self).__init__()
 
@@ -366,7 +366,7 @@ class EEG_model():
         torch.save(self.model.state_dict(), path_dir + '/model.pt')
         save_dict(path_dir, self.config)
 
-    def load_pretrained(self, path):
+    def load_model(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
 
