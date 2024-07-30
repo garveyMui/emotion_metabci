@@ -254,7 +254,7 @@ class StimArray(item):
                 random.seed(datetime.datetime.now().microsecond)
         else:
             if self.method == "sequential":
-                self.iter = n
+                self.iter = n % len(self.stim_list)
             else:
                 random.seed(n)
 
