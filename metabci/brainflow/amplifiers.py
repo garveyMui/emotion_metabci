@@ -5,6 +5,7 @@ Amplifiers.
 """
 import datetime
 import socket
+
 import struct
 import threading
 import time
@@ -198,6 +199,7 @@ class BaseAmplifier:
         while not self._exit.is_set():
             try:
                 samples = self.recv()
+                logger_amp.info(f"samples shape {len(samples)}")
                 if samples:
                     self._detect_event(samples)
             except Exception:
@@ -750,6 +752,10 @@ class Neuracle(BaseAmplifier):
         self.tcp_link = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._update_time = 0.04
         self.pkg_size = int(self._update_time*4*self.num_chans*self.srate)
+        serverPort = 8712
+        self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # configure port manually
+        self.serverSocket.bind(('', serverPort))
 
     def set_timeout(self, timeout):
         if self.tcp_link:
@@ -760,7 +766,12 @@ class Neuracle(BaseAmplifier):
         data = None
         # rs, _, _ = select.select([self.tcp_link], [], [], 9)
         try:
-            raw_data = self.tcp_link.recv(self.pkg_size)
+            logger_amp.info("trying to receive data")
+            # message, clientAddress = self.serverSocket.recvfrom(2048)
+            # logger_amp.info(f"data shape {len(message)}")
+            # print(message.shape)
+            raw_data = self.tcp_link.recvfrom(self.pkg_size)
+            logger_amp.info(f"received data: {len(raw_data)}")
         except Exception:
             self.tcp_link.close()
             print("Can not receive data from socket")

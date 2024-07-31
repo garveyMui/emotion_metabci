@@ -1,29 +1,31 @@
-import DeepPurpose.DTI as models
-from DeepPurpose.utils import *
-from DeepPurpose.dataset import *
+import pytorch_lightning as pl
 from DeepPurpose.encoders import *
+from torch.utils.tensorboard import SummaryWriter
+
 from convca import *
 from deepnet import *
 from eegnet import *
+from encoders import *
 from guney_net import *
 from pretraining import *
 from shallownet import *
-from encoders import *
 
 
 class Classifier(nn.Sequential):
     def __init__(self, model, **config):
         super(Classifier, self).__init__()
-
-        self.input_dim = config['input_dim']
-        self.hidden_dims = config['hidden_dims']
-
-        layer_size = len(self.hidden_dims) + 1
-        dims = [self.input_dim] + self.hidden_dims + [1]
-
-        self.dropout = nn.Dropout(config.get('dropout', 0.1))
-        self.predictor = nn.ModuleList([nn.Linear(dims[i], dims[i + 1]) for i in range(layer_size)])
-        self.model = model
+        if config['encoder'] in ['convca', 'deepnet', 'eegnet', 'guney_net', 'shallownet']:
+            self.model = model
+            self.dropout = nn.Dropout(config.get('dropout', 0.1))
+            self.predictor = nn.ModuleList([nn.Identity()])
+        else:
+            self.input_dim = config['dim_representation']
+            self.model = model
+            self.dropout = nn.Dropout(config.get('dropout', 0.1))
+            self.hidden_dims = config['cls_hidden_dims']
+            layer_size = len(self.hidden_dims) + 1
+            dims = [self.input_dim] + self.hidden_dims + [config['n_classes']]
+            self.predictor = nn.ModuleList([nn.Linear(dims[i], dims[i + 1]) for i in range(layer_size)])
 
     def forward(self, v):
         v = self.model(v)
@@ -31,16 +33,19 @@ class Classifier(nn.Sequential):
         for i, l in enumerate(self.predictor):
             if i == (len(self.predictor) - 1):
                 v = l(v)
+                v = F.gelu(v)
             else:
-                v = F.relu(self.dropout(l(v)))
+                v = F.gelu(self.dropout(l(v)))  # you can add softmax here
 
         return v
+
 
 def model_initialize(**config):
     model = EEG_model(**config)
     return model
 
-def model_pretrained(path_dir = None, model = None):
+
+def model_pretrained(path_dir=None, model=None):
     if model is not None:
         path_dir = download_pretrained_model(model)
     config = load_dict(path_dir)
@@ -48,49 +53,47 @@ def model_pretrained(path_dir = None, model = None):
     model.load_pretrained(path_dir + '/model.pt')
     return model
 
-class EEG_model():
-    def __init__(self, **config):
-        encoding = config['encoding']
 
-        if encoding == 'convca':
-            self.encoding = ConvCA(n_channels=config['n_channels'],
-                                   n_samples=config['n_samples'],
-                                   n_classes=config['n_classes'])
-        elif encoding == 'deepnet':
-            self.encoding = Deep4Net(n_channels=config['n_channels'],
-                                     n_samples=config['n_samples'],
-                                     n_classes=config['n_classes'])
-        elif encoding == 'eegnet':
-            self.encoding = EEGNet(n_channels=config['n_channels'],
-                                   n_samples=config['n_samples'],
-                                   n_classes=config['n_classes'])
-        elif encoding == "guney_net":
-            self.encoding = GuneyNet(n_channels=config['n_channels'],
-                                     n_samples=config['n_samples'],
-                                     n_classes=config['n_classes'],
-                                     n_bands=config['n_bands'])
-        elif encoding == "pretraining":
-            self.encoding = PreTraining(target_n_class=config['target_n_class'],
-                                        size_before_classification=config['size_before_classification'])
-        elif encoding == "shallownet":
-            self.encoding = ShallowNet(n_channels=config['n_channels'],
-                                       n_samples=config['n_samples'],
-                                       n_classes=config['n_classes'])
-        elif encoding == "transformer":
-            self.encoding = transformer(**config)
-        elif encoding == "CNN":
-            self.encoding = CNN(**config)
-        elif encoding == "CNN_RNN":
-            self.encoding = CNN_RNN(**config)
-        elif encoding == "MLP":
-            self.encoding = MLP(input_dim=config['input_dim'],
-                                output_dim=config['output_dim'],
-                                hidden_dims_lst=config['hidden_dims_lst'])
+class EEG_model(pl.LightningModule):
+    def __init__(self, **config):
+        encoder = config['encoder']
+
+        if encoder == 'convca':
+            self.encoder = ConvCA(n_channels=config['n_channels'],
+                                  n_samples=config['n_samples'],
+                                  n_classes=config['n_classes'])
+        elif encoder == 'deepnet':
+            self.encoder = Deep4Net(n_channels=config['n_channels'],
+                                    n_samples=config['n_samples'],
+                                    n_classes=config['n_classes'])
+        elif encoder == 'eegnet':
+            self.encoder = EEGNet(n_channels=config['n_channels'],
+                                  n_samples=config['n_samples'],
+                                  n_classes=config['n_classes'])
+        elif encoder == "guney_net":
+            self.encoder = GuneyNet(n_channels=config['n_channels'],
+                                    n_samples=config['n_samples'],
+                                    n_classes=config['n_classes'],
+                                    n_bands=config['n_bands'])
+        elif encoder == "shallownet":
+            self.encoder = ShallowNet(n_channels=config['n_channels'],
+                                      n_samples=config['n_samples'],
+                                      n_classes=config['n_classes'])
+        elif encoder == "transformer":
+            self.encoder = transformer(**config)
+        elif encoder == "CNN":
+            self.encoder = CNN(**config)
+        elif encoder == "CNN_RNN":
+            self.encoder = CNN_RNN(**config)
+        elif encoder == "MLP":
+            self.encoder = MLP(input_dim=config['input_dim'],
+                               output_dim=config['output_dim'],
+                               hidden_dims_lst=config['hidden_dims_lst'])
         else:
             raise AttributeError('Please use one of the available encoding method.')
 
+        self.model = Classifier(self.encoder, **config)
 
-        self.model = Classifier(self.encoding, **config)
         self.config = config
 
         if 'cuda_id' in self.config:
@@ -102,16 +105,30 @@ class EEG_model():
         else:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.encoding = encoding
-        
+        self.encoder = encoder
+
         self.result_folder = config['result_folder']
         if not os.path.exists(self.result_folder):
             os.mkdir(self.result_folder)
-        self.binary = False
+        if config['n_classes'] == 2:
+            self.binary = True
+            self.multiclass = False
+        elif config['n_classes'] > 2:
+            self.binary = False
+            self.multiclass = True
+        else:
+            self.binary = False
+            self.multiclass = False
+
         if 'num_workers' not in self.config.keys():
             self.config['num_workers'] = 0
         if 'decay' not in self.config.keys():
             self.config['decay'] = 0
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.predictor(x)
+        return x
 
     def test_(self, data_generator, model, repurposing_mode=False, test=False):
         y_pred = []
@@ -139,21 +156,26 @@ class EEG_model():
             if test:
                 roc_auc_file = os.path.join(self.result_folder, "roc-auc.jpg")
                 plt.figure(0)
-                roc_curve(y_pred, y_label, roc_auc_file, self.encoding)
+                roc_curve(y_pred, y_label, roc_auc_file, self.encoder)
                 plt.figure(1)
                 pr_auc_file = os.path.join(self.result_folder, "pr-auc.jpg")
-                prauc_curve(y_pred, y_label, pr_auc_file, self.encoding)
+                prauc_curve(y_pred, y_label, pr_auc_file, self.encoder)
 
-            return roc_auc_score(y_label, y_pred), average_precision_score(y_label, y_pred), f1_score(y_label,outputs), log_loss(y_label, outputs), y_pred
+            return roc_auc_score(y_label, y_pred), average_precision_score(y_label, y_pred), f1_score(y_label,
+                                                                                                      outputs), log_loss(
+                y_label, outputs), y_pred
         else:
             if repurposing_mode:
                 return y_pred
-            return mean_squared_error(y_label, y_pred), pearsonr(y_label, y_pred)[0], pearsonr(y_label, y_pred)[1], concordance_index(y_label, y_pred), y_pred, loss
+            return mean_squared_error(y_label, y_pred), pearsonr(y_label, y_pred)[0], pearsonr(y_label, y_pred)[
+                1], concordance_index(y_label, y_pred), y_pred, loss
 
     def train(self, train, val=None, test=None, verbose=True):
         if len(train.Label.unique()) == 2:
             self.binary = True
             self.config['binary'] = True
+        elif len(train.Label.unique()) > 2:
+            self.multiclass = True
 
         lr = self.config['LR']
         decay = self.config['decay']
@@ -188,7 +210,8 @@ class EEG_model():
                   'num_workers': self.config['num_workers'],
                   'drop_last': False}
 
-        training_generator = data.DataLoader(data_process_loader(train.index.values, train.Label.values, train, **self.config), **params)
+        training_generator = data.DataLoader(
+            data_process_loader(train.index.values, train.Label.values, train, **self.config), **params)
         if val is not None:
             validation_generator = data.DataLoader(
                 data_process_loader(val.index.values, val.Label.values, val, **self.config), **params)
@@ -201,7 +224,8 @@ class EEG_model():
                            'drop_last': False,
                            'sampler': SequentialSampler(info)}
 
-            testing_generator = data.DataLoader(data_process_loader(test.index.values, test.Label.values, test, **self.config), **params_test)
+            testing_generator = data.DataLoader(
+                data_process_loader(test.index.values, test.Label.values, test, **self.config), **params_test)
 
         # early stopping
         if self.binary:
@@ -214,6 +238,8 @@ class EEG_model():
         valid_metric_header = ["# epoch"]
         if self.binary:
             valid_metric_header.extend(["AUROC", "AUPRC", "F1"])
+        elif self.multiclass:
+            valid_metric_header.extend(["F1"]) # here **********************
         else:
             valid_metric_header.extend(["MSE", "Pearson Correlation", "with p-value", "Concordance Index"])
         table = PrettyTable(valid_metric_header)
@@ -317,7 +343,7 @@ class EEG_model():
                 if verbose:
                     print('Testing MSE: ' + str(mse) + ' , Pearson Correlation: ' + str(r2)
                           + ' with p-value: ' + str(f"{p_val:.2E}") + ' , Concordance Index: ' + str(CI))
-            np.save(os.path.join(self.result_folder, str(self.drug_encoding) + '_' + str(self.target_encoding)
+            np.save(os.path.join(self.result_folder, str(self.drug_encoder) + '_' + str(self.target_encoder)
                                  + '_logits.npy'), np.array(logits))
 
             ######### learning record ###########
@@ -385,4 +411,4 @@ class EEG_model():
         self.model.load_state_dict(state_dict)
 
         self.binary = self.config['binary']
-        #test
+        # test

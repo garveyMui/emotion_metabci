@@ -166,15 +166,16 @@ class FeedbackWorker(ProcessWorker):
         super().__init__(timeout=timeout, name=worker_name)
 
     def pre(self):
-        X, y, ch_ind = read_data(run_files=self.run_files,
-                                 chs=self.pick_chs,
-                                 interval=self.stim_interval,
-                                 labels=self.stim_labels)
-        print("Loding data successfully")
-        acc = offline_validation(X, y, srate=self.srate)     # 计算离线准确率
-        print("Current Model accuracy:", acc)
-        self.estimator = train_model(X, y, srate=self.srate)
-        self.ch_ind = ch_ind
+        # X, y, ch_ind = read_data(run_files=self.run_files,
+        #                          chs=self.pick_chs,
+        #                          interval=self.stim_interval,
+        #                          labels=self.stim_labels)
+        # print("Loding data successfully")
+        # acc = offline_validation(X, y, srate=self.srate)     # 计算离线准确率
+        # print("Current Model accuracy:", acc)
+        # self.estimator = train_model(X, y, srate=self.srate)
+        # self.ch_ind = ch_ind
+        self.ch_ind = [0, 1, 2]
         info = StreamInfo(
             name='meta_feedback',
             type='Markers',
@@ -229,7 +230,7 @@ def post_test():
         sock.close()
 
 if __name__ == '__main__':
-    post_test()
+    # post_test()
 
     # 放大器的采样率
     srate = 1000
@@ -239,10 +240,8 @@ if __name__ == '__main__':
     stim_labels = list(range(1, 3))
     cnts = 4   # .cnt数目
     # 数据路径
-    filepath = "E:\\ShareFolder\\meta1207wy\\MI\\train\\sub1"
-    runs = list(range(1, cnts+1))
-    run_files = ['{:s}\\{:d}.cnt'.format(
-        filepath, run) for run in runs]    # 具体数据路径
+    filepath = "E:/data/SEED_V_ori/SEED-V/EEG_raw/1_1_20180804.cnt"
+    run_files = [filepath]
     pick_chs = ['FP1', 'FPZ', 'FP2', 'AF3', 'AF4', 'F7', 'F5', 'F3', 'F1',
                 'FZ', 'F2', 'F4', 'F6', 'F8', 'FT7', 'FC5', 'FC3', 'FC1', 'FCZ',
                 'FC2', 'FC4', 'FC6', 'FT8', 'T7', 'C5', 'C3', 'C1', 'CZ', 'C2',
@@ -251,6 +250,12 @@ if __name__ == '__main__':
                 'P6', 'P8', 'PO7', 'PO5', 'PO3', 'POZ', 'PO4', 'PO6', 'PO8', 'CB1',
                 'O1', 'OZ', 'O2', 'CB2']
 
+    indexs_32 = [0, 2, 9, 7, 11, 5,
+                 13, 17, 19, 15, 21, 27,
+                 25, 29, 23, 31, 35, 37,
+                 33, 39, 45, 43, 47, 41,
+                 49, 52, 54, 59, 58, 60]
+    pick_chs = np.array(pick_chs)[indexs_32].tolist()
 
     lsl_source_id = 'meta_online_worker'
     feedback_worker_name = 'feedback_worker'
@@ -267,37 +272,35 @@ if __name__ == '__main__':
                     events=stim_labels)        # 打标签全为1
     # worker.pre()
 
-    ns = Neuracle(
-        device_address=('192.168.56.5', 8712),
+    nc = Neuracle(
+        device_address=('192.168.31.54', 8712),
         srate=srate,
         num_chans=32)  # Neuracle parameter
 
-    # 与ns建立tcp连接
-    ns.connect_tcp()
-    # ns开始采集波形数据
-    ns.start_acq()
+    # 与nc建立udp连接
+    nc.connect_tcp()
+
 
     # register worker来实现在线处理
-    ns.register_worker(feedback_worker_name, worker, marker)
+    nc.register_worker(feedback_worker_name, worker, marker)
     # 开启在线处理进程
-    ns.up_worker(feedback_worker_name)
+    nc.up_worker(feedback_worker_name)
     # 等待 0.5s
     time.sleep(0.5)
 
-    # ns开始截取数据线程，并把数据传递数据给处理进程
-    ns.start_trans()
+    # nc开始截取数据线程，并把数据传递数据给处理进程
+    nc.start_trans()
 
     # 任意键关闭处理进程
     input('press any key to close\n')
     # 关闭处理进程
-    ns.down_worker('feedback_worker')
+    nc.down_worker('feedback_worker')
     # 等待 1s
     time.sleep(1)
 
-    # ns停止在线截取线程
-    ns.stop_trans()
-    # ns停止采集波形数据
-    ns.stop_acq()
-    ns.close_connection()  # 与ns断开连接
-    ns.clear()
+    # nc停止在线截取线程
+    nc.stop_trans()
+
+    nc.close_connection()  # 与nc断开连接
+    nc.clear()
     print('bye')
