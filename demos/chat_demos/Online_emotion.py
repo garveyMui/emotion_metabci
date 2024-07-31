@@ -250,6 +250,10 @@ if __name__ == '__main__':
                 'P6', 'P8', 'PO7', 'PO5', 'PO3', 'POZ', 'PO4', 'PO6', 'PO8', 'CB1',
                 'O1', 'OZ', 'O2', 'CB2']
 
+    channels = ["T6", "P4", "Pz", "PG2", "F8", "F4", "Fp1", "Cz", "PG1", "F7", "F3", "C3", "T3", "A1", "Oz", "O1", "O2",
+                "Fz", "C4", "T4", "Fp2", "A2", "T5", "P3",
+                "EKG", "X1", "X2", "X3", "X4", "X5", "X6", 'X7']
+
     indexs_32 = [0, 2, 9, 7, 11, 5,
                  13, 17, 19, 15, 21, 27,
                  25, 29, 23, 31, 35, 37,
@@ -273,11 +277,11 @@ if __name__ == '__main__':
     # worker.pre()
 
     nc = Neuracle(
-        device_address=('192.168.31.54', 8712),
+        device_address=('192.168.31.46', 8712),
         srate=srate,
-        num_chans=32)  # Neuracle parameter
+        num_chans=33)  # Neuracle parameter
 
-    # 与nc建立udp连接
+    # 与nc建立tcp连接
     nc.connect_tcp()
 
 
