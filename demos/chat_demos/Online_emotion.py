@@ -5,8 +5,10 @@ SSAVEP Feedback on NeuroScan.
 
 """
 import socket
+import sys
 import time
 import numpy as np
+import torch
 
 import mne
 from mne.filter import resample
@@ -23,7 +25,7 @@ from sklearn.svm import SVC
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.pipeline import make_pipeline
 from scipy import signal
-
+from metabci.brainda.algorithms.deep_learning.models import model_initialize
 
 def label_encoder(y, labels):
     new_y = y.copy()
@@ -116,18 +118,21 @@ def train_model(X, y, srate=1000):
 
 
 def model_predict(X, srate=1000, model=None):
-    return 1
     X = np.reshape(X, (-1, X.shape[-2], X.shape[-1]))
     # 降采样
-    X = resample(X, up=256, down=srate)
+    # X = resample(X, up=256, down=srate)
+    X = resample(X, down=5)
     # 滤波
     X = bandpass(X, 8, 30, 256)
     # 零均值单位方差 归一化
     X = X - np.mean(X, axis=-1, keepdims=True)
     X = X / np.std(X, axis=(-1, -2), keepdims=True)
     # predict()预测标签
-    p_labels = model.predict(X)
-    return p_labels
+    logit_prob = model(X)
+    logit_prob = torch.squeeze(logit_prob)
+    logit_prob = logit_prob.detach().cpu().numpy()
+    print(logit_prob)
+    return logit_prob
 
 # 计算离线正确率
 
@@ -158,26 +163,23 @@ class FeedbackWorker(ProcessWorker):
                  lsl_source_id,
                  timeout,
                  worker_name):
+        super().__init__(timeout=timeout, name=worker_name)
+
         self.run_files = run_files
         self.pick_chs = pick_chs
         self.stim_interval = stim_interval
         self.stim_labels = stim_labels
         self.srate = srate
         self.lsl_source_id = lsl_source_id
-        super().__init__(timeout=timeout, name=worker_name)
+        self.labels = None
 
     def pre(self):
-        # X, y, ch_ind = read_data(run_files=self.run_files,
-        #                          chs=self.pick_chs,
-        #                          interval=self.stim_interval,
-        #                          labels=self.stim_labels)
-        # print("Loding data successfully")
-        # acc = offline_validation(X, y, srate=self.srate)     # 计算离线准确率
-        # print("Current Model accuracy:", acc)
-        # self.estimator = train_model(X, y, srate=self.srate)
-        # self.ch_ind = ch_ind
-        self.estimator = None
-        self.ch_ind = [0, 1, 2]
+        config = {"encoder":"eegnet",
+                  "n_channels":30,
+                  "n_samples":200*4,
+                  "n_classes":3}
+        self.estimator = model_initialize(**config)
+        self.ch_ind = np.arange(len(self.pick_chs))
         info = StreamInfo(
             name='meta_feedback',
             type='Markers',
@@ -191,12 +193,17 @@ class FeedbackWorker(ProcessWorker):
             if self.outlet.wait_for_consumers(1e-3):
                 break
         print('Connected')
+        sys.stdout.flush()
 
-    def consume(self, data):
-        print(len(data))
+    def consume(self, data, beta=0.6):
         data = np.array(data, dtype=np.float64).T
         data = data[self.ch_ind]
-        p_labels = model_predict(data, srate=self.srate, model=self.estimator)
+        logit_prob = model_predict(data, srate=self.srate, model=self.estimator)
+        if self.labels is None:
+            self.labels = logit_prob
+        else:
+            self.labels = logit_prob*beta + self.labels*(1-beta)
+        p_labels = np.argmax(logit_prob, axis=-1)
         p_labels = int(p_labels)
         p_labels = p_labels + 1
         p_labels = [p_labels]
@@ -206,21 +213,22 @@ class FeedbackWorker(ProcessWorker):
             self.outlet.push_sample(p_labels)
 
     def post(self):
+        emotion_dict = {0: "sad", 1: "neutral", 2: "happy"}
+        emotion_key = np.argmax(self.labels)
+        emotion = emotion_dict[emotion_key]
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_address = ('locakhost', 8000)
-        messages = "test"
+        server_address = ('127.0.0.1', 4023)
+        messages = emotion
         try:
             print(f'Sending "{messages}" to {server_address}')
-            sent = sock.sendto(messages, server_address)
-
+            sent = sock.sendto(messages.encode(), server_address)
         finally:
             print('Closing socket')
             sock.close()
 
+
 def post_test():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    local_ip = '0.0.0.0'
-    local_port = 4022
     # sock.bind((local_ip, local_port))
     server_address = ('127.0.0.1', 4023)
     messages = "我今天被领导骂了一顿，好想哭。"
@@ -274,7 +282,7 @@ if __name__ == '__main__':
                             stim_labels=stim_labels,
                             srate=srate,
                             lsl_source_id=lsl_source_id,
-                            timeout=5e-2,
+                            timeout=0.1,
                             worker_name=feedback_worker_name)  # 在线处理
     marker = Marker(interval=stim_interval, srate=srate,
                     events=stim_labels)        # 打标签全为1
@@ -287,7 +295,6 @@ if __name__ == '__main__':
 
     # 与nc建立tcp连接
     nc.connect_tcp()
-
 
     # register worker来实现在线处理
     nc.register_worker(feedback_worker_name, worker, marker)

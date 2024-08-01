@@ -1,22 +1,34 @@
 import pytorch_lightning as pl
-from DeepPurpose.encoders import *
+# from DeepPurpose.encoders import *
+import DeepPurpose.DTI as models
+import torch
+from timm import create_model
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn as nn
+from metabci.brainda.algorithms.deep_learning import *
+from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.modeling_finetune import *
+import yaml
+import os
 
-from convca import *
-from deepnet import *
-from eegnet import *
-from encoders import *
-from guney_net import *
-from pretraining import *
-from shallownet import *
+from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.utils import load_state_dict
+
+
+# from .convca import *
+# from .deepnet import *
+# from .eegnet import *
+# from .encoders import *
+# from .guney_net import *
+# from .pretraining import *
+# from .shallownet import *
 
 
 class Classifier(nn.Sequential):
     def __init__(self, model, **config):
         super(Classifier, self).__init__()
-        if config['encoder'] in ['convca', 'deepnet', 'eegnet', 'guney_net', 'shallownet']:
+        if config['encoder'] in ['convca', 'deepnet', 'eegnet', 'guney_net', 'shallownet', 'labram']:
             self.model = model
             self.dropout = nn.Dropout(config.get('dropout', 0.1))
+            # self.predictor = nn.ModuleList([nn.Identity()])
             self.predictor = nn.ModuleList([nn.Identity()])
         else:
             self.input_dim = config['dim_representation']
@@ -27,7 +39,7 @@ class Classifier(nn.Sequential):
             dims = [self.input_dim] + self.hidden_dims + [config['n_classes']]
             self.predictor = nn.ModuleList([nn.Linear(dims[i], dims[i + 1]) for i in range(layer_size)])
 
-    def forward(self, v):
+    def forward(self, v, **params):
         v = self.model(v)
 
         for i, l in enumerate(self.predictor):
@@ -39,6 +51,10 @@ class Classifier(nn.Sequential):
 
         return v
 
+    def predict(self, v):
+        self.eval()
+        y = self(v)
+        return y
 
 def model_initialize(**config):
     model = EEG_model(**config)
@@ -56,8 +72,11 @@ def model_pretrained(path_dir=None, model=None):
 
 class EEG_model(pl.LightningModule):
     def __init__(self, **config):
+        super(EEG_model, self).__init__()
+        print(config)
         encoder = config['encoder']
-
+        print(encoder)
+        self.encoder_name = encoder
         if encoder == 'convca':
             self.encoder = ConvCA(n_channels=config['n_channels'],
                                   n_samples=config['n_samples'],
@@ -89,6 +108,11 @@ class EEG_model(pl.LightningModule):
             self.encoder = MLP(input_dim=config['input_dim'],
                                output_dim=config['output_dim'],
                                hidden_dims_lst=config['hidden_dims_lst'])
+        elif encoder == "labram":
+            yaml_path = "E:/PycharmProjects/emotion_metabci/emotion_metabci/metabci/brainda/algorithms/deep_learning/encoders/LaBraM/config.yaml"
+            with open(yaml_path, 'r') as file:
+                config_from_yaml = yaml.safe_load(file)
+            self.encoder = create_model(**config_from_yaml['model_config'])
         else:
             raise AttributeError('Please use one of the available encoding method.')
 
@@ -96,18 +120,16 @@ class EEG_model(pl.LightningModule):
 
         self.config = config
 
-        if 'cuda_id' in self.config:
-            if self.config['cuda_id'] is None:
-                self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            else:
-                self.device = torch.device(
-                    'cuda:' + str(self.config['cuda_id']) if torch.cuda.is_available() else 'cpu')
-        else:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # if 'cuda_id' in self.config:
+        #     if self.config['cuda_id'] is None:
+        #         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        #     else:
+        #         self.device = torch.device(
+        #             'cuda:' + str(self.config['cuda_id']) if torch.cuda.is_available() else 'cpu')
+        # else:
+        #     self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        self.encoder = encoder
-
-        self.result_folder = config['result_folder']
+        self.result_folder = config.get('result_folder', "./result")
         if not os.path.exists(self.result_folder):
             os.mkdir(self.result_folder)
         if config['n_classes'] == 2:
@@ -125,9 +147,9 @@ class EEG_model(pl.LightningModule):
         if 'decay' not in self.config.keys():
             self.config['decay'] = 0
 
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.predictor(x)
+    def forward(self, x, **params):
+        # x = torch.tensor(x, dtype=torch.float32)
+        x = self.model(x, **params)
         return x
 
     def test_(self, data_generator, model, repurposing_mode=False, test=False):
@@ -373,18 +395,7 @@ class EEG_model(pl.LightningModule):
 
     def predict(self, df_data):
         print('predicting...')
-        info = data_process_loader(df_data.index.values, df_data.Label.values, df_data, **self.config)
-        self.model.to(self.device)
-        params = {'batch_size': self.config['batch_size'],
-                  'shuffle': False,
-                  'num_workers': self.config['num_workers'],
-                  'drop_last': False,
-                  'sampler': SequentialSampler(info)}
-
-        generator = data.DataLoader(info, **params)
-
-        score = self.test_(generator, self.model, repurposing_mode=True)
-        return score
+        self.encoder.predict(df_data)
 
     def save_model(self, path_dir):
         if not os.path.exists(path_dir):
@@ -392,23 +403,50 @@ class EEG_model(pl.LightningModule):
         torch.save(self.model.state_dict(), path_dir + '/model.pt')
         save_dict(path_dir, self.config)
 
-    def load_model(self, path):
-        if not os.path.exists(path):
-            os.makedirs(path)
+    def load_model(self, path_dir):
+        if self.encoder_name == "labram":
+            self.load_model_labram(path_dir, self.encoder)
+    def load_model_labram(self, path, model):
+        checkpoint = torch.load(path, map_location='cpu')
+        print("Load ckpt from %s" % path)
+        checkpoint_model = None
+        for model_key in "model|module".split('|'):
+            if model_key in checkpoint:
+                checkpoint_model = checkpoint[model_key]
+                print("Load state_dict by model_key = %s" % model_key)
+                break
+        if checkpoint_model is None:
+            checkpoint_model = checkpoint
+        if (checkpoint_model is not None) and ("gzip" != ''):
+            all_keys = list(checkpoint_model.keys())
+            new_dict = OrderedDict()
+            for key in all_keys:
+                if key.startswith('student.'):
+                    new_dict[key[8:]] = checkpoint_model[key]
+                else:
+                    pass
+            checkpoint_model = new_dict
 
-        state_dict = torch.load(path, map_location=torch.device('cpu'))
-        # to support training from multi-gpus data-parallel:
+        state_dict = model.state_dict()
+        for k in ['head.weight', 'head.bias']:
+            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+                print(f"Removing key {k} from pretrained checkpoint")
+                del checkpoint_model[k]
 
-        if next(iter(state_dict))[:7] == 'module.':
-            # the pretrained model is from data-parallel module
-            from collections import OrderedDict
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]  # remove `module.`
-                new_state_dict[name] = v
-            state_dict = new_state_dict
+        all_keys = list(checkpoint_model.keys())
+        for key in all_keys:
+            if "relative_position_index" in key:
+                checkpoint_model.pop(key)
 
-        self.model.load_state_dict(state_dict)
+        load_state_dict(model, checkpoint_model, prefix='')
 
-        self.binary = self.config['binary']
-        # test
+if __name__ == '__main__':
+    config = {"encoder": "labram",
+              "n_channels": 30,
+              "n_samples": 200,
+              "n_classes": 3}
+
+    model = model_initialize(**config)
+    data = np.random.random((1, 30, 1, 200))
+    idx_channels = np.arange(31) # 0 for CLS token
+    model((data, idx_channels))

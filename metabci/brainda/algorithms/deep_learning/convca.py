@@ -31,7 +31,7 @@ class _CorrLayer(nn.Module):
         return corr
 
 
-@SkorchNet  # TODO: Bug Fix required:  unable to make docs with this wrapper
+# @SkorchNet  # TODO: Bug Fix required:  unable to make docs with this wrapper
 class ConvCA(nn.Module):
     """
     ConvCA is a neural network designed for SSVEP task based on TRCA algorithm.
