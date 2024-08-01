@@ -116,6 +116,7 @@ def train_model(X, y, srate=1000):
 
 
 def model_predict(X, srate=1000, model=None):
+    return 1
     X = np.reshape(X, (-1, X.shape[-2], X.shape[-1]))
     # 降采样
     X = resample(X, up=256, down=srate)
@@ -175,6 +176,7 @@ class FeedbackWorker(ProcessWorker):
         # print("Current Model accuracy:", acc)
         # self.estimator = train_model(X, y, srate=self.srate)
         # self.ch_ind = ch_ind
+        self.estimator = None
         self.ch_ind = [0, 1, 2]
         info = StreamInfo(
             name='meta_feedback',
@@ -191,6 +193,7 @@ class FeedbackWorker(ProcessWorker):
         print('Connected')
 
     def consume(self, data):
+        print(len(data))
         data = np.array(data, dtype=np.float64).T
         data = data[self.ch_ind]
         p_labels = model_predict(data, srate=self.srate, model=self.estimator)
@@ -237,7 +240,8 @@ if __name__ == '__main__':
     # 截取数据的时间段，考虑进视觉刺激延迟140ms
     stim_interval = [0, 4]
     # 事件标签
-    stim_labels = list(range(1, 3))
+    # stim_labels = list(range(1, 3))
+    stim_labels = None
     cnts = 4   # .cnt数目
     # 数据路径
     filepath = "E:/data/SEED_V_ori/SEED-V/EEG_raw/1_1_20180804.cnt"
