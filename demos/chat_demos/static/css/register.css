@@ -1,0 +1,115 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    background: #34495e;
+}
+
+.box h2 {
+    color: white;
+    /*text-transform: uppercase;*/
+    font-weight: 500;
+    text-align: center;
+}
+.box {
+    width: 300px;
+    padding: 40px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #191919;
+    border-radius: 20px;
+    opacity: 0.8;
+}
+
+.register-box{
+    width: 100px;
+    position: absolute;
+    top: 10%;
+    left: 80%;
+}
+
+.box h1 {
+    color: white;
+    /*text-transform: uppercase;*/
+    font-weight: 500;
+}
+
+.box input[type='text'],
+.box input[type='password'] {
+    border: 0;
+    background: none;
+    display: block;
+    margin: 20px auto;
+    text-align: center;
+    border: 2px solid #3498db;
+    padding: 14px 10px;
+    width: 200px;
+    outline: none;
+    color: white;
+    border-radius: 24px;
+    transition: 0.25s;
+}
+
+.box input[type='text']:focus {
+    width: 280px;
+    border-color: #2ecc71;
+}
+
+.box input[type='password']:focus {
+    width: 280px;
+    border-color: #2ecc71;
+}
+
+.box input[type='submit'] {
+    border: 0;
+    background: none;
+    display: block;
+    margin: 20px auto;
+    text-align: center;
+    border: 2px solid #2ECC71;
+    padding: 14px 40px;
+    outline: none;
+    color: white;
+    border-radius: 24px;
+    transition: 0.25s;
+    cursor: pointer;
+}
+
+.box input[type="submit"]:hover {
+    background: #2ecc71;
+}
+.register-box button{
+    width: 120px;
+    border: 0;
+    background: none;
+    display: block;
+    margin: 10px auto;
+    text-align: center;
+    border: 2px solid #2ECC71;
+    padding: 14px 40px;
+    outline: none;
+    color: white;
+    border-radius: 24px;
+    transition: 0.25s;
+    cursor: pointer;
+}
+
+.register-box button:hover {
+    background: #2ecc71;
+}
+
+.flash.danger {
+    color: red;
+    font-weight: bold;
+}
+.flash.success {
+    color: red;
+    font-weight: bold;
+}
+
+.flash.error {
+    color: red;
+    font-weight: bold;
+}

@@ -28,7 +28,6 @@ class Classifier(nn.Sequential):
         if config['encoder'] in ['convca', 'deepnet', 'eegnet', 'guney_net', 'shallownet', 'labram']:
             self.model = model
             self.dropout = nn.Dropout(config.get('dropout', 0.1))
-            # self.predictor = nn.ModuleList([nn.Identity()])
             self.predictor = nn.ModuleList([nn.Identity()])
         else:
             self.input_dim = config['dim_representation']
