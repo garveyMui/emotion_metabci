@@ -36,13 +36,11 @@ def predict(message, history, assistant_prompt="", is_stream=False):
             }
         ]
     response = client.chat.completions.create(
-        # model="emohaa",  # 填写需要调用的模型名称
-        # model="glm-4v",
-        model = "codegeex-4",
+        model="emohaa",  # 填写需要调用的模型名称
         meta={
             "user_info": "30岁的男性软件工程师，兴趣包括阅读、徒步和编程",
-            # "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
-            # "bot_name": "Emohaa",
+            "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
+            "bot_name": "Emohaa",
             "user_name": "张三"
         },
         messages=messages_input,
@@ -54,6 +52,8 @@ def predict(message, history, assistant_prompt="", is_stream=False):
             print(chunk.choices[0].delta)
             response_message += chunk.choices[0].delta
     else:
+        print(type(response))
+        print(dict(response))
         print(response.choices[0].message)
         response_message = response.choices[0].message.content.strip()
     print(type(response_message))
@@ -95,6 +95,7 @@ def gradio_interface():
         emptyBtn.click(lambda: (None, None), None, [chatbot, prompt_input], queue=False)
 
     demo.queue()
-    demo.launch(server_name="127.0.0.1", server_port=8000, inbrowser=False, share=True)
+    demo.launch(server_name="127.0.0.1", server_port=8000, inbrowser=True, share=True)
+
 if __name__ == "__main__":
     gradio_interface()
