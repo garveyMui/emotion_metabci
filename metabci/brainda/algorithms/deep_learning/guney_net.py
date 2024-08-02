@@ -17,7 +17,7 @@ from .base import (
 )
 
 
-@SkorchNet  # TODO: Bug Fix required:  unable to make docs with this wrapper
+# @SkorchNet  # TODO: Bug Fix required:  unable to make docs with this wrapper
 class GuneyNet(nn.Module):
     """
 

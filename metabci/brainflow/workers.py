@@ -85,7 +85,7 @@ class ProcessWorker(multiprocessing.Process):
 
     """
 
-    def __init__(self, timeout: float = 1e-3, name: Optional[str] = None):
+    def __init__(self, timeout: float = 1e-1, name: Optional[str] = None):
         multiprocessing.Process.__init__(self)
         self.daemon = False
         self._exit = multiprocessing.Event()
@@ -152,9 +152,10 @@ class ProcessWorker(multiprocessing.Process):
             )
         )
         self.pre()
-        self.clear_queue()
+        # self.clear_queue()
         while not self._exit.is_set():
             try:
+                logger.info("attempting get data")
                 data = self._in_queue.get(timeout=self.timeout)
                 logger.info(
                     "consume samples in worker-{}".format(
@@ -163,6 +164,7 @@ class ProcessWorker(multiprocessing.Process):
                 )
                 self.consume(data)
             except queue.Empty:
+                logger.info("queue is empty")
                 # if queue is empty, loop to wait for next data until exiting
                 pass
         logger.info(

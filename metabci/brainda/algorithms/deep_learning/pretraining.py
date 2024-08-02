@@ -13,7 +13,7 @@ from .base import (
 )
 
 
-@SkorchNet
+# @SkorchNet
 class FineTuneNet(nn.Module):
     def __init__(self, backbone, test_classes, size_after_backbone):
         super().__init__()

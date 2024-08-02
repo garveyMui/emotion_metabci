@@ -224,10 +224,13 @@ class BaseAmplifier:
                 marker.append(sample)
                 if marker(sample[-1]) and worker.is_alive():
                     worker.put(marker.get_epoch())
+                    # worker.run()
+
 
     def up_worker(self, name):
         logger_amp.info("up worker-{}".format(name))
-        self._workers[name].start()
+        while not self._workers[name].is_alive():
+            self._workers[name].start()
 
     def down_worker(self, name):
         logger_amp.info("down worker-{}".format(name))
@@ -767,6 +770,7 @@ class Neuracle(BaseAmplifier):
         try:
             logger_amp.info("trying to receive data")
             raw_data = self.tcp_link.recv(self.pkg_size)
+            logger_amp.info(f"received data length: {len(raw_data)}")
             self._idx_among_epoch = (self._idx_among_epoch + 1) % (self._epoch_time//self._update_time)
         except Exception:
             self.tcp_link.close()
