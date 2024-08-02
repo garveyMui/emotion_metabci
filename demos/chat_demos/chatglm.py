@@ -52,6 +52,8 @@ def predict(message, history, assistant_prompt="", is_stream=False):
             print(chunk.choices[0].delta)
             response_message += chunk.choices[0].delta
     else:
+        print(type(response))
+        print(dict(response))
         print(response.choices[0].message)
         response_message = response.choices[0].message.content.strip()
     print(type(response_message))
@@ -95,3 +97,5 @@ def gradio_interface():
     demo.queue()
     demo.launch(server_name="127.0.0.1", server_port=8000, inbrowser=True, share=True)
 
+if __name__ == "__main__":
+    gradio_interface()
