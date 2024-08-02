@@ -4,6 +4,7 @@
 SSAVEP Feedback on NeuroScan.
 
 """
+import os
 import socket
 import sys
 import time
@@ -116,8 +117,14 @@ class FeedbackWorker(ProcessWorker):
         server_address = ('127.0.0.1', 4023)
         messages = emotion
         try:
-            print(f'Sending "{messages}" to {server_address}')
-            sent = sock.sendto(messages.encode(), server_address)
+            while True:
+                if time.time() % 1 == 0:
+                    print(f'Sending "{messages}" to {server_address}')
+                sock.sendto(messages.encode(), server_address)
+                response, server_address = sock.recvfrom(1024)
+                if response.decode() == "got it":
+                    print("Send successfully")
+                    break
         finally:
             print('Closing socket')
             sock.close()
