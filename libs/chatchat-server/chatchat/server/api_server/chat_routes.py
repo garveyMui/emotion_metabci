@@ -5,6 +5,7 @@ from typing import Dict, List
 from fastapi import APIRouter, Request
 from langchain.prompts.prompt import PromptTemplate
 from sse_starlette import EventSourceResponse
+from zhipuai import ZhipuAI
 
 from chatchat.server.api_server.api_schemas import OpenAIChatInput
 from chatchat.server.chat.chat import chat
@@ -22,7 +23,6 @@ from chatchat.settings import Settings
 from chatchat.utils import build_logger
 from .openai_routes import openai_request, OpenAIChatOutput
 
-
 logger = build_logger()
 
 chat_router = APIRouter(prefix="/chat", tags=["ChatChat 对话"])
@@ -37,15 +37,14 @@ chat_router.post(
     summary="返回llm模型对话评分",
 )(chat_feedback)
 
-
 chat_router.post("/kb_chat", summary="知识库对话")(kb_chat)
 chat_router.post("/file_chat", summary="文件对话")(file_chat)
 
 
 @chat_router.post("/chat/completions", summary="兼容 openai 的统一 chat 接口")
 async def chat_completions(
-    request: Request,
-    body: OpenAIChatInput,
+        request: Request,
+        body: OpenAIChatInput,
 ) -> Dict:
     """
     请求参数与 openai.chat.completions.create 一致，可以通过 extra_body 传入额外参数
@@ -66,11 +65,19 @@ async def chat_completions(
     if body.max_tokens in [None, 0]:
         body.max_tokens = Settings.model_settings.MAX_TOKENS
 
-    client = get_OpenAIClient(model_name=body.model, is_async=True)
+    #client = get_OpenAIClient(model_name=body.model, is_async=True)
+    #client.chat.completions.create()
+    client = ZhipuAI(api_key="e3ebd37cf2d247fbdc3654c29d0c796b.ESZ67PNR5gbCydt0")  # 填写您自己的APIKey
+    body.model = "emohaa"
+    # body.model = "glm-4"
+    # body.stream = False
     extra = {**body.model_extra} or {}
+
     for key in list(extra):
         delattr(body, key)
 
+    for key in ["top_p", "presence_penalty", 'frequency_penalty']:
+        delattr(body, key)
     # check tools & tool_choice in request body
     if isinstance(body.tool_choice, str):
         if t := get_tool(body.tool_choice):
@@ -140,19 +147,31 @@ async def chat_completions(
                     "tool_call": tool.get_name(),
                     "tool_output": tool_result.data,
                     "is_ref": False if tool.return_direct else True,
+                    "Content-Type": "application/json",
+                    "Authorization": "bd111f3f2fadb2e914ed1a55ce1453c6.79ZDHSS4xBMi4Sgw"
                 }
             ]
             if tool.return_direct:
                 def temp_gen():
                     yield OpenAIChatOutput(**header[0]).model_dump_json()
+
                 return EventSourceResponse(temp_gen())
             else:
-                return await openai_request(
-                    client.chat.completions.create,
-                    body,
-                    extra_json=extra_json,
-                    header=header,
-                )
+                # return await openai_request(
+                #     client.chat.completions.create,
+                #     body,
+                #     extra_json=extra_json,
+                #     header=header,
+                # )
+                return client.chat.completions.create(model="emohaa",  # 填写需要调用的模型名称
+                                                      meta={
+                                                          "user_info": "30岁的男性软件工程师，兴趣包括阅读、徒步和编程",
+                                                          "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
+                                                          "bot_name": "Emohaa",
+                                                          "user_name": "张三"
+                                                      },
+                                                      messages=body.messages,
+                                                      stream=False)
 
     # agent chat with tool calls
     if body.tools:
@@ -187,7 +206,7 @@ async def chat_completions(
         )
         return result
     else:  # LLM chat directly
-        try: # query is complex object that unable add to db when using qwen-vl-chat 
+        try:  # query is complex object that unable add to db when using qwen-vl-chat
             message_id = (
                 add_message_to_db(
                     chat_type="llm_chat",
@@ -205,6 +224,16 @@ async def chat_completions(
             "message_id": message_id,
             "status": None,
         }
-        return await openai_request(
+        meta_info={
+          "user_info": "30岁的男性软件工程师，兴趣包括阅读、徒步和编程",
+          "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
+          "bot_name": "Emohaa",
+          "user_name": "张三"
+        }
+        responses = await openai_request(
             client.chat.completions.create, body, extra_json=extra_json
         )
+
+        # async for chunk in responses.body_iterator:
+        #     print(chunk)
+        return responses

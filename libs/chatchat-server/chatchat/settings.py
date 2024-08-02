@@ -107,10 +107,10 @@ class BasicSettings(BaseFileSettings):
     Windows 下 WEBUI 自动弹出浏览器时，如果地址为 "0.0.0.0" 是无法访问的，需要手动修改地址栏
     """
 
-    API_SERVER: dict = {"host": DEFAULT_BIND_HOST, "port": 7861, "public_host": "127.0.0.1", "public_port": 7861}
+    API_SERVER: dict = {"host": DEFAULT_BIND_HOST, "port": 7862, "public_host": "127.0.0.1", "public_port": 7861}
     """API 服务器地址。其中 public_host 用于生成云服务公网访问链接（如知识库文档链接）"""
 
-    WEBUI_SERVER: dict = {"host": DEFAULT_BIND_HOST, "port": 8501}
+    WEBUI_SERVER: dict = {"host": DEFAULT_BIND_HOST, "port": 8502}
     """WEBUI 服务器地址"""
 
     def make_dirs(self):

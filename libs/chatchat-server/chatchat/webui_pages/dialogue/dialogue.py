@@ -15,6 +15,7 @@ import streamlit_antd_components as sac
 from streamlit_chatbox import *
 from streamlit_extras.bottom_container import bottom
 from streamlit_paste_button import paste_image_button
+from zhipuai import ZhipuAI
 
 from chatchat.settings import Settings
 from chatchat.server.callback_handler.agent_callback_handler import AgentStatus
@@ -436,6 +437,9 @@ def dialogue_page(
             params["tool_choice"] = tool_choice
         if Settings.model_settings.MAX_TOKENS:
             params["max_tokens"] = Settings.model_settings.MAX_TOKENS
+        stream = True
+
+        client = ZhipuAI(api_key="bd111f3f2fadb2e914ed1a55ce1453c6.79ZDHSS4xBMi4Sgw")  # 填写您自己的APIKey
 
         if stream:
             try:
@@ -528,6 +532,8 @@ def dialogue_page(
                 st.error(e.body)
         else:
             try:
+                params["model"] = "emohaa"
+                params["stream"] = False
                 d =client.chat.completions.create(**params)
                 chat_box.update_msg(d.choices[0].message.content or "", streaming=False)
             except Exception as e:

@@ -1,14 +1,13 @@
-import click
-from pathlib import Path
 import shutil
-import typing as t
+from pathlib import Path
 
-from chatchat.startup import main as startup_main
+import click
+
 from chatchat.init_database import main as kb_main, create_tables, folder2db
-from chatchat.settings import Settings
-from chatchat.utils import build_logger
 from chatchat.server.utils import get_default_embedding
-
+from chatchat.settings import Settings
+from chatchat.startup import main as startup_main
+from chatchat.utils import build_logger
 
 logger = build_logger()
 
@@ -35,11 +34,11 @@ def main():
               default="samples",
               help="要重建知识库的名称。可以指定多个知识库名称，以 , 分隔。")
 def init(
-    xf_endpoint: str = "",
-    llm_model: str = "",
-    embed_model: str = "",
-    recreate_kb: bool = False,
-    kb_names: str = "",
+        xf_endpoint: str = "",
+        llm_model: str = "",
+        embed_model: str = "",
+        recreate_kb: bool = False,
+        kb_names: str = "",
 ):
     Settings.set_auto_reload(False)
     bs = Settings.basic_settings
@@ -47,8 +46,9 @@ def init(
     logger.success(f"开始初始化项目数据目录：{Settings.CHATCHAT_ROOT}")
     Settings.basic_settings.make_dirs()
     logger.success("创建所有数据目录：成功。")
-    if(bs.PACKAGE_ROOT / "data/knowledge_base/samples" != Path(bs.KB_ROOT_PATH) / "samples"):
-        shutil.copytree(bs.PACKAGE_ROOT / "data/knowledge_base/samples", Path(bs.KB_ROOT_PATH) / "samples", dirs_exist_ok=True)
+    if (bs.PACKAGE_ROOT / "data/knowledge_base/samples" != Path(bs.KB_ROOT_PATH) / "samples"):
+        shutil.copytree(bs.PACKAGE_ROOT / "data/knowledge_base/samples", Path(bs.KB_ROOT_PATH) / "samples",
+                        dirs_exist_ok=True)
     logger.success("复制 samples 知识库文件：成功。")
     create_tables()
     logger.success("初始化知识库数据库：成功。")
@@ -78,7 +78,6 @@ def init(
 
 main.add_command(startup_main, "start")
 main.add_command(kb_main, "kb")
-
 
 if __name__ == "__main__":
     main()

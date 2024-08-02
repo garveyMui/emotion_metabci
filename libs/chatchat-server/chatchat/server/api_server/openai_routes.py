@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
+import re
 import shutil
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -82,11 +83,24 @@ async def openai_request(
                 for k, v in extra_json.items():
                     setattr(x, k, v)
                 yield x.model_dump_json()
+            str=''
 
-            async for chunk in await method(**params):
+            for chunk in method(**params):
                 for k, v in extra_json.items():
                     setattr(chunk, k, v)
-                yield chunk.model_dump_json()
+                result=json.loads(chunk.model_dump_json())
+                print(result['choices'][0]['delta']['content'],end='')
+                str=str + result['choices'][0]['delta']['content']
+            # str=str.replace("\n","")
+            # str =str.replace("\/", "")
+            # str =str.replace("\"", "")
+            # str =str.replace(":", "")
+            # str =str.replace("0", "")
+            result['choices'][0]['delta']['content']=str
+
+            result: str = json.dumps(result)
+            
+            yield result
 
             for x in tail:
                 if isinstance(x, str):
@@ -112,7 +126,8 @@ async def openai_request(
     if hasattr(body, "stream") and body.stream:
         return EventSourceResponse(generator())
     else:
-        result = await method(**params)
+        #result = await method(**params)
+        result=map(lambda x:x,method(**params))
         for k, v in extra_json.items():
             setattr(result, k, v)
         return result.model_dump()

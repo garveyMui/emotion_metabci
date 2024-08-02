@@ -186,6 +186,12 @@ setuptools = "^67.6.1"
 
 
 
+
+[[tool.poetry.source]]
+name = "mirrors"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+priority = "primary"
+
 [tool.ruff]
 exclude = [
     "tests/examples/non-utf8-encoding.py",

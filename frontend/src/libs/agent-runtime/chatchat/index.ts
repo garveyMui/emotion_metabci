@@ -27,7 +27,7 @@ export class LobeChatChatAI implements LobeRuntimeAI {
   }
 
   async chat(payload: ChatStreamPayload, options?: ChatCompetitionOptions) {
-
+    console.debug('test')
     try {
       const response = await this.client.chat.completions.create(
         payload as unknown as (OpenAI.ChatCompletionCreateParamsStreaming | OpenAI.ChatCompletionCreateParamsNonStreaming),
@@ -40,10 +40,11 @@ export class LobeChatChatAI implements LobeRuntimeAI {
         if (process.env.DEBUG_OLLAMA_CHAT_COMPLETION === '1') {
           debugStream(debug.toReadableStream()).catch(console.error);
         }
-
+        //console.debug(prod);
         return new StreamingTextResponse(OpenAIStream(prod, options?.callback), {
           headers: options?.headers,
         });
+
       } else {
 
         if (process.env.DEBUG_OLLAMA_CHAT_COMPLETION === '1') {

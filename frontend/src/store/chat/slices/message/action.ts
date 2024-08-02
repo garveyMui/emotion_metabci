@@ -280,6 +280,7 @@ export const chatMessage: StateCreator<
         messageService.getMessages(sessionId, topicId),
       {
         onSuccess: (messages, key) => {
+          console.debug(messages)
           set(
             { activeId: sessionId, messages, messagesInit: true },
             false,
@@ -370,7 +371,7 @@ export const chatMessage: StateCreator<
       dispatchMessage,
       createSmoothMessage,
     } = get();
-
+    console.debug('running');
     const abortController = toggleChatLoading(
       true,
       assistantId,
@@ -512,9 +513,10 @@ export const chatMessage: StateCreator<
         functionCallContent = content;
       }
     }
-
+    console.debug(output);
     return {
       content: output,
+      // content: "ni shi ",
       functionCallAtEnd,
       functionCallContent,
       isFunctionCall,
