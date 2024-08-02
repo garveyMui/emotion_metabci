@@ -120,6 +120,7 @@ async def openai_request(
             yield {"data": json.dumps({"error": str(e)})}
 
     params = body.model_dump(exclude_unset=True)
+    params['meta'] = extra_json['meta_info']
     if params.get("max_tokens") == 0:
         params["max_tokens"] = Settings.model_settings.MAX_TOKENS
 

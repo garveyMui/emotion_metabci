@@ -28,4 +28,7 @@ export const preferredRegion = [
   'syd1',
 ];
 
-export const POST = async (req: Request) => UniverseRoute(req, { params: { provider: 'google' } });
+export const POST = async (req: Request) => {
+  console.debug('running');
+  return UniverseRoute(req, { params: { provider: 'google' } });
+}

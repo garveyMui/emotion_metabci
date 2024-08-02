@@ -95,7 +95,7 @@ def gradio_interface():
         emptyBtn.click(lambda: (None, None), None, [chatbot, prompt_input], queue=False)
 
     demo.queue()
-    demo.launch(server_name="127.0.0.1", server_port=8000, inbrowser=True, share=True)
+    demo.launch(server_name="127.0.0.1", server_port=8000, inbrowser=False, share=True)
 
 if __name__ == "__main__":
     gradio_interface()

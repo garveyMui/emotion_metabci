@@ -29,5 +29,8 @@ export const preferredRegion = [
   'syd1',
 ];
 
-export const POST = async (req: Request) =>
-  UniverseRoute(req, { params: { provider: 'anthropic' } });
+export const POST = async (req: Request) =>{
+  console.debug('trying');
+  return UniverseRoute(req, { params: { provider: 'anthropic' } });
+}
+

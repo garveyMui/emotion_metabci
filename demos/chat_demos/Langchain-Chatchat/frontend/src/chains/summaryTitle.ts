@@ -9,7 +9,7 @@ export const chainSummaryTitle = async (
 
   const finalMessages: OpenAIChatMessage[] = [
     {
-      content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以内的标题',
+      content: '你是一名擅长会话的助理',
       role: 'system',
     },
     {

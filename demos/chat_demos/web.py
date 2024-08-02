@@ -6,7 +6,8 @@ import multiprocessing as mp
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-
+import multiprocessing as mp
+from collector import collecting_all_info
 
 
 def web_server():
@@ -24,7 +25,7 @@ def web_server():
         id = db.Column(db.Integer, primary_key=True)
         username = db.Column(db.String(80), unique=True, nullable=False)
         password = db.Column(db.String(120), nullable=False)
-
+        user_hobby = db.Column(db.String(200))
         def __repr__(self):
             return f'<User {self.username}>'
 
@@ -44,7 +45,7 @@ def web_server():
                 return render_template('register.html')
             hashed_password = generate_password_hash(password, method="scrypt")
             try:
-                new_user = User(username=username, password=hashed_password)
+                new_user = User(username=username, password=hashed_password, user_hobby="23岁是学生,喜欢大口吃瓜")
                 db.session.add(new_user)
                 db.session.commit()
             except Exception as e:
@@ -65,10 +66,12 @@ def web_server():
             password = request.form['password']
 
             user = User.query.filter_by(username=username).first()
-
+            user_hobby = user.user_hobby
             if user and check_password_hash(user.password, password):
                 flash('Login successful.', 'success')
                 session['username'] = username
+                process = mp.Process(target=collecting_all_info, args=(username, user_hobby))
+                process.start()
                 return redirect(url_for('chat'))
             else:
                 flash('Invalid username or password.', 'danger')

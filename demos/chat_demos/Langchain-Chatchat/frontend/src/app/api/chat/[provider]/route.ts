@@ -41,7 +41,7 @@ export const POST = async (req: Request, { params }: { params: { provider: strin
     const data = (await req.json()) as ChatStreamPayload;
 
     const tracePayload = getTracePayload(req);
-
+    console.debug(data);
     return await agentRuntime.chat(data, {
       enableTrace: tracePayload?.enabled,
       provider,

@@ -78,7 +78,7 @@ export const fetchSSE = async (fetchFn: () => Promise<Response>, options: FetchS
       done = doneReading;
       const chunkValue = decoder.decode(value, { stream: true });
 
-      output += chunkValue;
+      output += chunkValue.slice(3,-6);
       options.onMessageHandle?.(chunkValue);
     } catch (error) {
       done = true;
@@ -92,10 +92,9 @@ export const fetchSSE = async (fetchFn: () => Promise<Response>, options: FetchS
       }
     }
   }
-
+  //output=output.slice(0,-2);
   const traceId = response.headers.get(LOBE_CHAT_TRACE_ID);
   const observationId = response.headers.get(LOBE_CHAT_OBSERVATION_ID);
   await options?.onFinish?.(output, { observationId, traceId, type: finishedType });
-
   return returnRes;
 };

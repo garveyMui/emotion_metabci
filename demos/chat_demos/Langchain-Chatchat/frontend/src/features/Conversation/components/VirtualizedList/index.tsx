@@ -31,6 +31,8 @@ const VirtualizedList = memo<VirtualizedListProps>(({ mobile }) => {
     (s) => ['empty', ...chatSelectors.currentChatIDsWithGuideMessage(s)],
     isEqual,
   );
+  console.debug('chatlist');
+  console.debug(data);
   const [id, chatLoading] = useChatStore((s) => [
     chatSelectors.currentChatKey(s),
     chatSelectors.currentChatLoadingState(s),

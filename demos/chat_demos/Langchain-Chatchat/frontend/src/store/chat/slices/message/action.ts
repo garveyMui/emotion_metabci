@@ -387,7 +387,8 @@ export const chatMessage: StateCreator<
     // ================================== //
 
     // 1. slice messages with config
-    let preprocessMsgs = chatHelpers.getSlicedMessagesWithConfig(messages, config);
+    let preprocessMsgs = messages
+    //chatHelpers.getSlicedMessagesWithConfig(messages, config);
 
     // 2. replace inputMessage template
     preprocessMsgs = !config.inputTemplate
@@ -395,7 +396,7 @@ export const chatMessage: StateCreator<
       : preprocessMsgs.map((m) => {
           if (m.role === 'user') {
             try {
-              return { ...m, content: compiler({ text: m.content }) };
+              return { ...m, content: compiler({ text: m.content}) };
             } catch (error) {
               console.error(error);
 
@@ -513,7 +514,7 @@ export const chatMessage: StateCreator<
         functionCallContent = content;
       }
     }
-    console.debug(output);
+
     return {
       content: output,
       // content: "ni shi ",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 from typing import Dict, List
 
 from fastapi import APIRouter, Request
@@ -27,10 +28,10 @@ logger = build_logger()
 
 chat_router = APIRouter(prefix="/chat", tags=["ChatChat 对话"])
 
-# chat_router.post(
-#     "/chat",
-#     summary="与llm模型对话(通过LLMChain)",
-# )(chat)
+chat_router.post(
+    "/chat",
+    summary="与llm模型对话(通过LLMChain)",
+)(chat)
 
 chat_router.post(
     "/feedback",
@@ -224,12 +225,16 @@ async def chat_completions(
             "message_id": message_id,
             "status": None,
         }
+
         meta_info={
-          "user_info": "30岁的男性软件工程师，兴趣包括阅读、徒步和编程",
-          "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
-          "bot_name": "Emohaa",
-          "user_name": "张三"
+          # "user_info": "30岁的男性软件工程师，兴趣包括阅读、徒步和编程",
+            "user_info": user_info,
+            "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
+            "bot_name": "Emohaa",
+            # "user_name": "张三"
+            "user_name": user_name,
         }
+        extra_json["meta_info"] = meta_info
         responses = await openai_request(
             client.chat.completions.create, body, extra_json=extra_json
         )

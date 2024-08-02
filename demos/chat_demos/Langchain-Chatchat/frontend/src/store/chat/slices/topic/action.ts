@@ -52,9 +52,10 @@ export const chatTopic: StateCreator<
   openNewTopicOrSaveTopic: async () => {
     const { switchTopic, saveToTopic, refreshMessages, activeTopicId } = get();
     const hasTopic = !!activeTopicId;
-
+    console.debug(hasTopic);
     if (hasTopic) switchTopic();
     else {
+      console.debug('new');
       await saveToTopic();
       refreshMessages();
     }
@@ -77,7 +78,7 @@ export const chatTopic: StateCreator<
 
     // 2. auto summary topic Title
     // we don't need to wait for summary, just let it run async
-    summaryTopicTitle(topicId, messages);
+     summaryTopicTitle(topicId, messages);
 
     return topicId;
   },

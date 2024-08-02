@@ -39,7 +39,7 @@ describe('chainSummaryTitle', () => {
     expect(result).toEqual({
       messages: [
         {
-          content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以内的标题',
+          content: '你是一名擅长会话的助理，你需要将用户的会话总结为 1',
           role: 'system',
         },
         {
@@ -55,7 +55,7 @@ describe('chainSummaryTitle', () => {
     // Verify that getMessagesTokenCount was called with the correct messages
     expect(chatHelpers.getMessagesTokenCount).toHaveBeenCalledWith([
       {
-        content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以内的标题',
+        content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个题',
         role: 'system',
       },
       {
@@ -85,7 +85,7 @@ describe('chainSummaryTitle', () => {
     expect(result).toEqual({
       messages: [
         {
-          content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以内的标题',
+          content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以内',
           role: 'system',
         },
         {
@@ -101,7 +101,7 @@ describe('chainSummaryTitle', () => {
     // Verify that getMessagesTokenCount was called with the correct messages
     expect(chatHelpers.getMessagesTokenCount).toHaveBeenCalledWith([
       {
-        content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以内的标题',
+        content: '你是一名擅长会话的助理，你需要将用户的会话总结为 10 个字以',
         role: 'system',
       },
       {

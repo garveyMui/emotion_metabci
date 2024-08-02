@@ -95,7 +95,7 @@ class ChatService {
     const shouldUseTools = filterTools.length > 0 && canUseFC;
 
     const tools = shouldUseTools ? filterTools : undefined;
-
+    console.debug(oaiMessages);
     return this.getChatCompletion({ ...params, messages: oaiMessages, tools }, options);
   };
 
@@ -142,7 +142,7 @@ class ChatService {
       headers: { 'Content-Type': 'application/json', ...traceHeader },
       provider,
     });
-
+    //console.debug('posting');
     return fetch(API_ENDPOINTS.chat(provider), {
       body: JSON.stringify(payload),
       headers,
@@ -194,6 +194,7 @@ class ChatService {
     abortController,
     trace,
   }: FetchAITaskResultParams) => {
+    console.debug('really');
     const errorHandle = (error: Error, errorContent?: any) => {
       onLoadingChange?.(false);
       if (abortController?.signal.aborted) {

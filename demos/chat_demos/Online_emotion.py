@@ -130,21 +130,30 @@ class FeedbackWorker(ProcessWorker):
             sock.close()
 
 
-def post_test():
+def post():
+    labels = np.random((1, 3))
+    emotion_dict = {0: "sad", 1: "neutral", 2: "happy"}
+    emotion_key = np.argmax(labels)
+    emotion = emotion_dict[emotion_key]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # sock.bind((local_ip, local_port))
     server_address = ('127.0.0.1', 4023)
-    messages = "我今天被领导骂了一顿，好想哭。"
+    messages = emotion
     try:
-        print(f'Sending "{messages}" to {server_address}')
-        sent = sock.sendto(messages.encode(), server_address)
-
+        while True:
+            if time.time() % 1 == 0:
+                print(f'Sending "{messages}" to {server_address}')
+            sock.sendto(messages.encode(), server_address)
+            response, server_address = sock.recvfrom(1024)
+            if response.decode() == "got it":
+                print("Send successfully")
+                break
     finally:
         print('Closing socket')
         sock.close()
 
+
 if __name__ == '__main__':
-    # post_test()
+    post()
 
     # 放大器的采样率
     srate = 1000
