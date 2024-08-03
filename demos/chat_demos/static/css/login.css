@@ -94,6 +94,12 @@ body {
     background: #2ecc71;
 }
 
+.canvas {
+            width: 100vw; /* 宽度为100%视口宽度 */
+            height: 100vh; /* 高度为100%视口高度 */
+            border: none; /* 移除边框 */
+        }
+
 .flash.danger {
     color: red;
     font-weight: bold;

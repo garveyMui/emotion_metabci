@@ -28,6 +28,10 @@ def web_server():
         user_hobby = db.Column(db.String(200))
         def __repr__(self):
             return f'<User {self.username}>'
+    class Current(db.Model):
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(80), unique=True, nullable=False)
+        info = db.Column(db.String(200), unique=False, nullable=False)
 
     # 创建数据库表
     with app.app_context():
@@ -39,15 +43,19 @@ def web_server():
         if request.method == 'POST':
             username = request.form['username']
             password = request.form['password']
-            password1 = request.form['passwordAgain']
-            if password != password1:
-                flash('Passwords do not match', 'error')
-                return render_template('register.html')
+            # password1 = request.form['passwordAgain']
+            # if password != password1:
+            #     flash('Passwords do not match', 'error')
+            #     return render_template('register.html')
+            info = request.form['info']
             hashed_password = generate_password_hash(password, method="scrypt")
             try:
-                new_user = User(username=username, password=hashed_password, user_hobby="23岁是学生,喜欢大口吃瓜")
+                new_user = User(username=username, password=hashed_password, user_hobby=info)
                 db.session.add(new_user)
+                dummy_current = Current(name="dummy", info="dummy info")
+                db.session.add(dummy_current)
                 db.session.commit()
+                # db.session.close()
             except Exception as e:
                 print("create user failed!!!", e)
                 flash('username occupied!', 'error')
@@ -66,12 +74,24 @@ def web_server():
             password = request.form['password']
 
             user = User.query.filter_by(username=username).first()
-            user_hobby = user.user_hobby
+            try:
+                user_hobby = user.user_hobby
+            except Exception as e:
+                print("no hobby found!!!", e)
+            else:
+                user_hobby = ""
             if user and check_password_hash(user.password, password):
                 flash('Login successful.', 'success')
                 session['username'] = username
+
+                first_row = Current.query.first()
+                first_row.name = user.username
+                first_row.info = user.user_hobby
+                db.session.commit()
+
                 process = mp.Process(target=collecting_all_info, args=(username, user_hobby))
                 process.start()
+
                 return redirect(url_for('chat'))
             else:
                 flash('Invalid username or password.', 'danger')

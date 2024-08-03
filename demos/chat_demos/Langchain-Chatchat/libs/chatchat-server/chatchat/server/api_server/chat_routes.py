@@ -4,7 +4,10 @@ from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 from typing import Dict, List
 
 from fastapi import APIRouter, Request
+from flask_sqlalchemy import SQLAlchemy
 from langchain.prompts.prompt import PromptTemplate
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from sse_starlette import EventSourceResponse
 from zhipuai import ZhipuAI
 
@@ -225,12 +228,39 @@ async def chat_completions(
             "message_id": message_id,
             "status": None,
         }
+        db = SQLAlchemy()
+        class Current(db.Model):
+            id = db.Column(db.Integer, primary_key=True)
+            name = db.Column(db.String(80), unique=True, nullable=False)
+            info = db.Column(db.String(200), unique=False, nullable=False)
 
+        DATABASE_URI = 'sqlite:////Users/meijiawei/Documents/metabci/emotion_metabci/demos/chat_demos/instance/users.db'
+
+        # 创建数据库引擎
+        engine = create_engine(DATABASE_URI)
+
+        # 创建Session类
+        Session = sessionmaker(bind=engine)
+
+        # 创建Session实例
+        session = Session()
+
+        # 查询所有用户
+        users = [session.query(Current).first()]
+
+        # 打印用户信息
+        for user in users:
+            print(f'ID: {user.id}, Name: {user.name}, Info: {user.info}')
+
+        user_info = user.info
+        user_name = user.name
+        # 关闭Session
+        session.close()
         meta_info={
           # "user_info": "30岁的男性软件工程师，兴趣包括阅读、徒步和编程",
             "user_info": user_info,
-            "bot_info": "Emohaa是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
-            "bot_name": "Emohaa",
+            "bot_info": "MetaBCI-Emo是一款基于Hill助人理论的情感支持AI，拥有专业的心理咨询话术能力",
+            "bot_name": "MetaBCI-Emo",
             # "user_name": "张三"
             "user_name": user_name,
         }

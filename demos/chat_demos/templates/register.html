@@ -28,7 +28,7 @@
     <form method="POST">
         <input type="text" placeholder="账号" name="username" autocomplete="off" class="login_txtbx">
         <input type="password" placeholder="输入密码" name="password" autocomplete="off" class="login_txtbx">
-        <input type="password" placeholder="确认密码" name="passwordAgain" autocomplete="off" class="login_txtbx">
+        <input type="profile" placeholder="年龄,爱好" name="info" autocomplete="off" class="login_txtbx">
         <input type="submit" name="btn" value="确认注册" placeholder="登陆">
     </form>
         {% with messages = get_flashed_messages(with_categories=true) %}

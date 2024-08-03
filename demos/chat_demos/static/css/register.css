@@ -35,6 +35,11 @@ body {
     /*text-transform: uppercase;*/
     font-weight: 500;
 }
+.canvas {
+            width: 100vw; /* 宽度为100%视口宽度 */
+            height: 100vh; /* 高度为100%视口高度 */
+            border: none; /* 移除边框 */
+        }
 
 .box input[type='text'],
 .box input[type='password'] {
@@ -51,7 +56,21 @@ body {
     border-radius: 24px;
     transition: 0.25s;
 }
-
+.box input[type='profile'] {
+    height: 120px;
+    border: 0;
+    background: none;
+    display: block;
+    margin: 20px auto;
+    text-align: center;
+    border: 2px solid #3498db;
+    padding: 14px 10px;
+    width: 200px;
+    outline: none;
+    color: white;
+    border-radius: 24px;
+    transition: 0.25s;
+}
 .box input[type='text']:focus {
     width: 280px;
     border-color: #2ecc71;
