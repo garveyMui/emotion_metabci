@@ -4,31 +4,21 @@
 SSAVEP Feedback on NeuroScan.
 
 """
-import os
 import socket
 import sys
 import time
+
 import numpy as np
 import torch
-
-import mne
+from einops import rearrange
 from mne.filter import resample
 from pylsl import StreamInfo, StreamOutlet
-
-from metabci.brainda.algorithms.deep_learning.utils import get_input_chans
-from metabci.brainflow.amplifiers import NeuroScan, Marker, Neuracle
-from metabci.brainflow.workers import ProcessWorker
-from metabci.brainda.algorithms.decomposition.base import generate_filterbank
-from metabci.brainda.algorithms.utils.model_selection \
-    import EnhancedLeaveOneGroupOut
-from metabci.brainda.algorithms.decomposition.csp import FBCSP
-from metabci.brainda.utils import upper_ch_names
-from mne.io import read_raw_cnt
-from sklearn.svm import SVC
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.pipeline import make_pipeline
 from scipy import signal
+
 from metabci.brainda.algorithms.deep_learning.models import model_initialize, model_pretrained
+from metabci.brainda.algorithms.deep_learning.utils import get_input_chans
+from metabci.brainflow.amplifiers import Marker, Neuracle
+from metabci.brainflow.workers import ProcessWorker
 
 
 def bandpass(sig, freq0, freq1, srate, axis=-1):
@@ -72,6 +62,7 @@ def labram_model_predict(X, pick_channels, model=None):
     # predict()预测标签
     if not type(X) == torch.Tensor:
         X = torch.tensor(X, dtype=torch.float32)
+    X = rearrange(X, 'b n (a t) -> b n a t', t=200)
     logit_prob = model((X, pick_channels))
     logit_prob = torch.squeeze(logit_prob)
     logit_prob = logit_prob.detach().cpu().numpy()
@@ -97,16 +88,18 @@ class FeedbackWorker(ProcessWorker):
         self.labels = None
 
     def pre(self):
-        config = {"encoder":"eegnet",
-                  "n_channels":32,
-                  "n_samples":200*4,
-                  "n_classes":3}
-        self.estimator = model_initialize(**config)
+        ##### get eegnet model #####
+        # config = {"encoder":"eegnet",
+        #           "n_channels":32,
+        #           "n_samples":200*4,
+        #           "n_classes":3}
+        # self.estimator = model_initialize(**config)
         config = {"encoder": "labram",
                   "n_channels": 32,
                   "n_samples": 200,
                   "n_classes": 3,
-                  "pretrained_path": "E:/PycharmProjects/emotion_metabci/emotion_metabci/checkpoints/LaBraM/labram-base.pth"}
+                  "pretrained_path": "E:/emotion_metabci/emotion_metabci/checkpoints/LaBraM/labram-base.pth",
+                  "yaml_path": "E:/emotion_metabci/emotion_metabci/metabci/brainda/algorithms/deep_learning/encoders/LaBraM/config.yaml"}
         self.estimator = model_pretrained(**config)
         self.ch_idx = np.arange(len(self.pick_chs))
         info = StreamInfo(
@@ -128,6 +121,7 @@ class FeedbackWorker(ProcessWorker):
         data = np.array(data, dtype=np.float64).T
         data = data[self.ch_idx]  # drop trigger channel
         idx_chs = get_input_chans(self.pick_chs)  # add CLS token and remap channel names to 10-20 index
+        ##### use eegnet model #####
         # logit_prob = model_predict(data, model=self.estimator)
         logit_prob = labram_model_predict(data, idx_chs, model=self.estimator)
         if self.labels is None:
@@ -217,7 +211,7 @@ if __name__ == '__main__':
     # worker.pre()
 
     nc = Neuracle(
-        device_address=('192.168.31.46', 8712),
+        # device_address=('192.168.31.46', 8712),
         srate=srate,
         num_chans=33)  # Neuracle parameter
 

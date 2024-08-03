@@ -1,12 +1,11 @@
-from flask import Flask, render_template, request, session, redirect, url_for
-import sqlite3
-from chatglm import gradio_interface
-import threading
 import multiprocessing as mp
+import sqlite3
+
 from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-import multiprocessing as mp
+
 from collector import collecting_all_info
 
 

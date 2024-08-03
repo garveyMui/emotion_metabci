@@ -1,16 +1,13 @@
-import pytorch_lightning as pl
-# from DeepPurpose.encoders import *
-import DeepPurpose.DTI as models
-import torch
-from timm import create_model
-from torch.utils.tensorboard import SummaryWriter
-import torch.nn as nn
-from metabci.brainda.algorithms.deep_learning import *
-from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.modeling_finetune import *
-import yaml
 import os
 
-from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.utils import load_state_dict
+import pytorch_lightning as pl
+import yaml
+# from DeepPurpose.encoders import *
+# import DeepPurpose.DTI as models
+from timm import create_model
+
+from metabci.brainda.algorithms.deep_learning import *
+from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.modeling_finetune import *
 from metabci.brainda.algorithms.deep_learning.utils import load_model_labram
 
 
@@ -56,6 +53,7 @@ class Classifier(nn.Sequential):
         y = self(v)
         return y
 
+
 def model_initialize(**config):
     model = EEG_model(**config)
     return model
@@ -68,7 +66,6 @@ def model_pretrained(**config):
     else:
         raise AttributeError('This pretrained model getting method has not been implemented yet.')
     return model
-
 
 
 class EEG_model(pl.LightningModule):
@@ -110,7 +107,7 @@ class EEG_model(pl.LightningModule):
                                output_dim=config['output_dim'],
                                hidden_dims_lst=config['hidden_dims_lst'])
         elif encoder == "labram":
-            yaml_path = "E:/PycharmProjects/emotion_metabci/emotion_metabci/metabci/brainda/algorithms/deep_learning/encoders/LaBraM/config.yaml"
+            yaml_path = config["yaml_path"]
             with open(yaml_path, 'r') as file:
                 config_from_yaml = yaml.safe_load(file)
             self.encoder = create_model(**config_from_yaml['model_config'])
@@ -153,17 +150,25 @@ class EEG_model(pl.LightningModule):
         return x
 
 
-
 if __name__ == '__main__':
-    config = {"encoder": "labram",
-              "n_channels": 30,
-              "n_samples": 200,
-              "n_classes": 3,
-              "pretrained_path": "E:/PycharmProjects/emotion_metabci/emotion_metabci/checkpoints/LaBraM/labram-base.pth"}
+    LOAD_PRETRAINED_MODEL = True
+    if LOAD_PRETRAINED_MODEL:
+        config = {"encoder": "labram",
+                  "n_channels": 32,
+                  "n_samples": 200,
+                  "n_classes": 3,
+                  "pretrained_path": "E:/emotion_metabci/emotion_metabci/checkpoints/LaBraM/labram-base.pth",
+                  "yaml_path": "E:/emotion_metabci/emotion_metabci/metabci/brainda/algorithms/deep_learning/encoders/LaBraM/config.yaml"}
+        model = model_pretrained(**config)
+    else:
+        config = {"encoder": "labram",
+                  "n_channels": 32,
+                  "n_samples": 200,
+                  "n_classes": 3,
+                  "yaml_path": "E:/emotion_metabci/emotion_metabci/metabci/brainda/algorithms/deep_learning/encoders/LaBraM/config.yaml"}
+        model = model_initialize(**config)
 
-    # model = model_initialize(**config)
-    model = model_pretrained(**config)
     data = np.random.random((1, 30, 1, 200))
-    idx_channels = np.arange(31) # 0 for CLS token
+    idx_channels = np.arange(31)  # 0 for CLS token
     res = model((data, idx_channels))
     print(res)

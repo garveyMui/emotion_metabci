@@ -35,7 +35,7 @@ model_config:
   model_key: model|module
   model_prefix: ''
   momentum: 0.9
-  num_classes: 0
+  num_classes: 3
   num_workers: 10
   opt: adamw
   opt_betas: null
