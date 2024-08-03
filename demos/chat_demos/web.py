@@ -30,7 +30,7 @@ def web_server():
             return f'<User {self.username}>'
     class Current(db.Model):
         id = db.Column(db.Integer, primary_key=True)
-        name = db.Column(db.String(80), unique=True, nullable=False)
+        name = db.Column(db.String(80), unique=False, nullable=False)
         info = db.Column(db.String(200), unique=False, nullable=False)
 
     # 创建数据库表
@@ -52,8 +52,10 @@ def web_server():
             try:
                 new_user = User(username=username, password=hashed_password, user_hobby=info)
                 db.session.add(new_user)
-                dummy_current = Current(name="dummy", info="dummy info")
-                db.session.add(dummy_current)
+                res = Current.query.filter_by(name="dummy").first()
+                if res is None:
+                    dummy_current = Current(name="dummy", info="dummy info")
+                    db.session.add(dummy_current)
                 db.session.commit()
                 # db.session.close()
             except Exception as e:
