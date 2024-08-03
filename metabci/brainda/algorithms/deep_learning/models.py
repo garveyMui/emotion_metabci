@@ -11,6 +11,7 @@ import yaml
 import os
 
 from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.utils import load_state_dict
+from metabci.brainda.algorithms.deep_learning.utils import load_model_labram
 
 
 # from .convca import *
@@ -60,13 +61,14 @@ def model_initialize(**config):
     return model
 
 
-def model_pretrained(path_dir=None, model=None):
-    if model is not None:
-        path_dir = download_pretrained_model(model)
-    config = load_dict(path_dir)
+def model_pretrained(**config):
     model = EEG_model(**config)
-    model.load_pretrained(path_dir + '/model.pt')
+    if config['encoder'] == "labram":
+        load_model_labram(config['pretrained_path'], model.encoder)
+    else:
+        raise AttributeError('This pretrained model getting method has not been implemented yet.')
     return model
+
 
 
 class EEG_model(pl.LightningModule):
@@ -147,54 +149,21 @@ class EEG_model(pl.LightningModule):
             self.config['decay'] = 0
 
     def forward(self, x, **params):
-        # x = torch.tensor(x, dtype=torch.float32)
         x = self.model(x, **params)
         return x
 
-    def load_model(self, path_dir):
-        if self.encoder_name == "labram":
-            self.load_model_labram(path_dir, self.encoder)
-    def load_model_labram(self, path, model):
-        checkpoint = torch.load(path, map_location='cpu')
-        print("Load ckpt from %s" % path)
-        checkpoint_model = None
-        for model_key in "model|module".split('|'):
-            if model_key in checkpoint:
-                checkpoint_model = checkpoint[model_key]
-                print("Load state_dict by model_key = %s" % model_key)
-                break
-        if checkpoint_model is None:
-            checkpoint_model = checkpoint
-        if (checkpoint_model is not None) and ("gzip" != ''):
-            all_keys = list(checkpoint_model.keys())
-            new_dict = OrderedDict()
-            for key in all_keys:
-                if key.startswith('student.'):
-                    new_dict[key[8:]] = checkpoint_model[key]
-                else:
-                    pass
-            checkpoint_model = new_dict
 
-        state_dict = model.state_dict()
-        for k in ['head.weight', 'head.bias']:
-            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
-                del checkpoint_model[k]
-
-        all_keys = list(checkpoint_model.keys())
-        for key in all_keys:
-            if "relative_position_index" in key:
-                checkpoint_model.pop(key)
-
-        load_state_dict(model, checkpoint_model, prefix='')
 
 if __name__ == '__main__':
     config = {"encoder": "labram",
               "n_channels": 30,
               "n_samples": 200,
-              "n_classes": 3}
+              "n_classes": 3,
+              "pretrained_path": "E:/PycharmProjects/emotion_metabci/emotion_metabci/checkpoints/LaBraM/labram-base.pth"}
 
-    model = model_initialize(**config)
+    # model = model_initialize(**config)
+    model = model_pretrained(**config)
     data = np.random.random((1, 30, 1, 200))
     idx_channels = np.arange(31) # 0 for CLS token
-    model((data, idx_channels))
+    res = model((data, idx_channels))
+    print(res)

@@ -1,3 +1,6 @@
+from metabci.brainda.algorithms.deep_learning import *
+from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.modeling_finetune import *
+from metabci.brainda.algorithms.deep_learning.encoders.LaBraM.utils import load_state_dict
 
 standard_1020 = [
     'FP1', 'FPZ', 'FP2',
@@ -20,3 +23,37 @@ def get_input_chans(ch_names):
     for ch_name in ch_names:
         input_chans.append(standard_1020.index(ch_name) + 1)
     return input_chans
+
+def load_model_labram(path, model):
+    checkpoint = torch.load(path, map_location='cpu')
+    print("Load ckpt from %s" % path)
+    checkpoint_model = None
+    for model_key in "model|module".split('|'):
+        if model_key in checkpoint:
+            checkpoint_model = checkpoint[model_key]
+            print("Load state_dict by model_key = %s" % model_key)
+            break
+    if checkpoint_model is None:
+        checkpoint_model = checkpoint
+    if (checkpoint_model is not None) and ("gzip" != ''):
+        all_keys = list(checkpoint_model.keys())
+        new_dict = OrderedDict()
+        for key in all_keys:
+            if key.startswith('student.'):
+                new_dict[key[8:]] = checkpoint_model[key]
+            else:
+                pass
+        checkpoint_model = new_dict
+
+    state_dict = model.state_dict()
+    for k in ['head.weight', 'head.bias']:
+        if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+            print(f"Removing key {k} from pretrained checkpoint")
+            del checkpoint_model[k]
+
+    all_keys = list(checkpoint_model.keys())
+    for key in all_keys:
+        if "relative_position_index" in key:
+            checkpoint_model.pop(key)
+
+    load_state_dict(model, checkpoint_model, prefix='')
