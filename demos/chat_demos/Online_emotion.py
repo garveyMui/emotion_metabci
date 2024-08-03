@@ -14,6 +14,8 @@ import torch
 import mne
 from mne.filter import resample
 from pylsl import StreamInfo, StreamOutlet
+
+from metabci.brainda.algorithms.deep_learning.utils import get_input_chans
 from metabci.brainflow.amplifiers import NeuroScan, Marker, Neuracle
 from metabci.brainflow.workers import ProcessWorker
 from metabci.brainda.algorithms.decomposition.base import generate_filterbank
@@ -26,7 +28,9 @@ from sklearn.svm import SVC
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.pipeline import make_pipeline
 from scipy import signal
-from metabci.brainda.algorithms.deep_learning.models import model_initialize
+from metabci.brainda.algorithms.deep_learning.models import model_initialize, model_pretrained
+
+
 def bandpass(sig, freq0, freq1, srate, axis=-1):
     wn1 = 2*freq0/srate
     wn2 = 2*freq1/srate
@@ -34,8 +38,9 @@ def bandpass(sig, freq0, freq1, srate, axis=-1):
     sig_new = signal.filtfilt(b, a, sig, axis=axis)
     return sig_new
 
-# 预测标签
-def model_predict(X, srate=1000, model=None):
+# for eegnet
+def model_predict(X, model=None):
+
     X = np.reshape(X, (-1, X.shape[-2], X.shape[-1]))
     # 降采样
     # X = resample(X, up=256, down=srate)
@@ -46,7 +51,28 @@ def model_predict(X, srate=1000, model=None):
     X = X - np.mean(X, axis=-1, keepdims=True)
     X = X / np.std(X, axis=(-1, -2), keepdims=True)
     # predict()预测标签
+    if not type(X) == torch.Tensor:
+        X = torch.tensor(X, dtype=torch.float32)
     logit_prob = model(X)
+    logit_prob = torch.squeeze(logit_prob)
+    logit_prob = logit_prob.detach().cpu().numpy()
+    print(logit_prob)
+    return logit_prob
+
+# for labram
+def labram_model_predict(X, pick_channels, model=None):
+    X = np.reshape(X, (-1, X.shape[-2], X.shape[-1]))
+    # 降采样
+    X = resample(X, down=5)
+    # 滤波
+    X = bandpass(X, 13, 75, 200)
+    # 零均值单位方差 归一化
+    X = X - np.mean(X, axis=-1, keepdims=True)
+    X = X / np.std(X, axis=(-1, -2), keepdims=True)
+    # predict()预测标签
+    if not type(X) == torch.Tensor:
+        X = torch.tensor(X, dtype=torch.float32)
+    logit_prob = model((X, pick_channels))
     logit_prob = torch.squeeze(logit_prob)
     logit_prob = logit_prob.detach().cpu().numpy()
     print(logit_prob)
@@ -72,11 +98,17 @@ class FeedbackWorker(ProcessWorker):
 
     def pre(self):
         config = {"encoder":"eegnet",
-                  "n_channels":30,
+                  "n_channels":32,
                   "n_samples":200*4,
                   "n_classes":3}
         self.estimator = model_initialize(**config)
-        self.ch_ind = np.arange(len(self.pick_chs))
+        config = {"encoder": "labram",
+                  "n_channels": 32,
+                  "n_samples": 200,
+                  "n_classes": 3,
+                  "pretrained_path": "E:/PycharmProjects/emotion_metabci/emotion_metabci/checkpoints/LaBraM/labram-base.pth"}
+        self.estimator = model_pretrained(**config)
+        self.ch_idx = np.arange(len(self.pick_chs))
         info = StreamInfo(
             name='meta_feedback',
             type='Markers',
@@ -94,17 +126,18 @@ class FeedbackWorker(ProcessWorker):
 
     def consume(self, data, beta=0.6):
         data = np.array(data, dtype=np.float64).T
-        data = data[self.ch_ind]
-        logit_prob = model_predict(data, srate=self.srate, model=self.estimator)
+        data = data[self.ch_idx]  # drop trigger channel
+        idx_chs = get_input_chans(self.pick_chs)  # add CLS token and remap channel names to 10-20 index
+        # logit_prob = model_predict(data, model=self.estimator)
+        logit_prob = labram_model_predict(data, idx_chs, model=self.estimator)
         if self.labels is None:
             self.labels = logit_prob
         else:
             self.labels = logit_prob*beta + self.labels*(1-beta)
         p_labels = np.argmax(logit_prob, axis=-1)
         p_labels = int(p_labels)
-        p_labels = p_labels + 1
+        p_labels = p_labels
         p_labels = [p_labels]
-        # p_labels = p_labels.tolist()
         print(p_labels)
         if self.outlet.have_consumers():
             self.outlet.push_sample(p_labels)
@@ -114,12 +147,13 @@ class FeedbackWorker(ProcessWorker):
         emotion_key = np.argmax(self.labels)
         emotion = emotion_dict[emotion_key]
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_address = ('127.0.0.1', 4023)
+        # server_address = ('127.0.0.1', 4023)
+        server_address = ('192.168.31.10', 4023)
         messages = emotion
         try:
             while True:
-                if time.time() % 1 == 0:
-                    print(f'Sending "{messages}" to {server_address}')
+                # if time.time() % 1 == 0:
+                print(f'Sending "{messages}" to {server_address}')
                 sock.sendto(messages.encode(), server_address)
                 response, server_address = sock.recvfrom(1024)
                 if response.decode() == "got it":
@@ -130,18 +164,20 @@ class FeedbackWorker(ProcessWorker):
             sock.close()
 
 
+
 def post():
-    labels = np.random((1, 3))
+    labels = np.random.random((1, 3))
     emotion_dict = {0: "sad", 1: "neutral", 2: "happy"}
-    emotion_key = np.argmax(labels)
+    emotion_key = np.argmax(labels, axis=-1)[0]
+    emotion_key = 0
     emotion = emotion_dict[emotion_key]
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_address = ('127.0.0.1', 4023)
+    server_address = ('192.168.31.10', 4023)
     messages = emotion
     try:
         while True:
-            if time.time() % 1 == 0:
-                print(f'Sending "{messages}" to {server_address}')
+            # if time.time() % 1 == 0:
+            print(f'Sending "{messages}" to {server_address}')
             sock.sendto(messages.encode(), server_address)
             response, server_address = sock.recvfrom(1024)
             if response.decode() == "got it":
@@ -153,7 +189,7 @@ def post():
 
 
 if __name__ == '__main__':
-    post()
+    # post()
 
     # 放大器的采样率
     srate = 1000
@@ -161,20 +197,10 @@ if __name__ == '__main__':
     stim_interval = [0, 4]
     # 事件标签
     stim_labels = None
-    pick_chs = ['FP1', 'FPZ', 'FP2', 'AF3', 'AF4', 'F7', 'F5', 'F3', 'F1',
-                'FZ', 'F2', 'F4', 'F6', 'F8', 'FT7', 'FC5', 'FC3', 'FC1', 'FCZ',
-                'FC2', 'FC4', 'FC6', 'FT8', 'T7', 'C5', 'C3', 'C1', 'CZ', 'C2',
-                'C4', 'C6', 'T8', 'TP7', 'CP5', 'CP3', 'CP1', 'CPZ', 'CP2',
-                'CP4', 'CP6', 'TP8', 'P7', 'P5', 'P3', 'P1', 'PZ', 'P2', 'P4',
-                'P6', 'P8', 'PO7', 'PO5', 'PO3', 'POZ', 'PO4', 'PO6', 'PO8', 'CB1',
-                'O1', 'OZ', 'O2', 'CB2']
-
-    indexs_32 = [0, 2, 9, 7, 11, 5,
-                 13, 17, 19, 15, 21, 27,
-                 25, 29, 23, 31, 35, 37,
-                 33, 39, 45, 43, 47, 41,
-                 49, 52, 54, 59, 58, 60]
-    pick_chs = np.array(pick_chs)[indexs_32].tolist()
+    pick_chs = ['FP1', 'FP2', 'F3', 'F4', 'F7', 'F8', 'FC1', 'FC2', 'FC5', 'FC6',
+                'CZ', 'C3', 'C4', 'T7', 'T8', 'CP1', 'CP2', 'CP5', 'CP6', 'PZ',
+                'P3', 'P4', 'P7', 'P8', 'POZ', 'PO3', 'PO4', 'PO5', 'PO6', 'OZ',
+                'O1', 'O2']
 
     lsl_source_id = 'meta_online_worker'
     feedback_worker_name = 'feedback_worker'
