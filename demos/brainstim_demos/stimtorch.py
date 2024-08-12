@@ -120,10 +120,11 @@ if __name__ == "__main__":
     pro_emotion = pro_emotion(win=win)
     pro_MI=pro_MI(win=win)
     #base_emotion = base_emotion(win=win, film="demos/brainstim_demos/emotion.xlsx")
-
+    file_stim=FileStim('file.xlsx')
 
                                  # 在线实验的标志
     ex.register_paradigm_new("pro emotion",pro_emotion)
     ex.register_paradigm_new("pro_mi",pro_MI)
+    ex.register_paradigm_new("file_stim", file_stim)
 
     ex.run()
