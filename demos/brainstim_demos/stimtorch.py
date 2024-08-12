@@ -1,10 +1,51 @@
 import math
-
+import pandas as pd
 from psychopy import monitors
 import numpy as np
 from metabci.brainstim.paradigm import (VisualStim)
 from metabci.brainstim import pystim as ps
 from metabci.brainstim.framework import Experiment
+class FileStim(VisualStim):
+    def __init__(self,win,file):
+        super().__init__(self,win)
+        self.scene=ps.scene()
+        f = pd.read_excel(file)
+        for index, row in f.iterrows():
+            if(row['type']=='movie'):
+                self.scene.add_module(row['name'],ps.Movie(win=self.win,
+                                                           file=row['file'],
+                                                           time=row['time'],
+                                                           start=row['start'],
+                                                           end=row['end'],
+                                                           label=row['label'],
+                                                           pos=[row['pos_x'],row['pos_y']]))
+            elif(row['type']=='text'):
+                self.scene.add_module(row['name'], ps.Text(win=self.win,
+                                                            text=row['text'],
+                                                            time=row['time'],
+                                                            start=row['start'],
+                                                            end=row['end'],
+                                                            label=row['label'],
+                                                            pos=[row['pos_x'], row['pos_y']]))
+            elif (row['type'] == 'countdown'):
+                self.scene.add_module(row['name'], ps.CountDown(win=self.win,
+                                                            time=row['time'],
+                                                            start=row['start'],
+                                                            end=row['end'],
+                                                            label=row['label'],
+                                                            pos=[row['pos_x'], row['pos_y']]))
+            elif (row['type'] == 'image'):
+                self.scene.add_module(row['name'], ps.Image(win=self.win,
+                                                            file=row['file'],
+                                                            time=row['time'],
+                                                            start=row['start'],
+                                                            end=row['end'],
+                                                            label=row['label'],
+                                                            pos=[row['pos_x'], row['pos_y']]))
+    def forward(self):
+        self.scene.run(win,bg_color=np.array([-1, -1, -1]),device_type="Txt",port_addr="out.txt")
+
+
 
 class pro_emotion(VisualStim):
     def __init__(self,win):
